@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crash Detector</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const W=500, H=140;
+  const n = Math.max(2, s.hist.length);
+  const pts = s.hist.map((v,i)=>`${(i/(n-1))*W},${H - Math.min(H, v*25)}`).join(' ');
+  return `<svg viewBox="0 0 540 260">
+    <rect x="10" y="10" width="${W+20}" height="${H+20}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    <line x1="10" y1="${10+H - s.threshold*25}" x2="${W+30}" y2="${10+H - s.threshold*25}" stroke="#E63946" stroke-dasharray="4 4"/>
+    <text x="14" y="${10+H - s.threshold*25 - 4}" font-size="10" fill="#E63946" font-weight="bold">threshold ${s.threshold}g</text>
+    <polyline points="${pts}" fill="none" stroke="#FFD700" stroke-width="3" transform="translate(10,10)"/>
+    <g transform="translate(270,210) rotate(${s.crashed?180:s.tilt})">
+      <rect x="-30" y="-3" width="60" height="6" fill="${s.crashed?'#E63946':'#264653'}"/>
+      <circle cx="-30" cy="0" r="5" fill="#FFD700"/>
+      <circle cx="30" cy="0" r="5" fill="#FFD700"/>
+    </g>
+    <text x="270" y="250" text-anchor="middle" font-size="13" font-weight="bold" fill="${s.crashed?'#E63946':'#264653'}">${s.crashed?'💥 CRASH — DISARM!':'✈️ flying'}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '💥 Crash Detector',
+  subtitle: 'Spike + wrong orientation → cut motors fast!',
+  vars: {
+    accel: { label:'📳 accel', value: 1, color:'#FFD700', note:'g' },
+    tilt:  { label:'📐 tilt',  value: 0, color:'#264653', note:'°' }
+  },
+  extras: [
+    { kind:'slider', id:'sh', label:'Shake intensity', min:0, max:100, value:10, step:5, onInput(v,s){ s.shake = v/10; }},
+    { kind:'slider', id:'th', label:'Threshold (g)',   min:3, max:12, value:6, step:1, onInput(v,s){ s.threshold = v; }}
+  ],
+  lines: [
+    'READ accel magnitude',
+    'READ tilt angle',
+    'IF accel > threshold AND tilt > 60° for >200ms',
+    'DISARM motors'
+  ],
+  phases: ['accel','tilt','check','act'],
+  onInit(s){ s.shake = 1; s.threshold = 6; s.accel = 1; s.tilt = 0; s.crashed = false; s.spikeCount = 0; s.hist = []; s.t = 0; },
+  onReset(s){ s.shake = 1; s.threshold = 6; s.accel = 1; s.tilt = 0; s.crashed = false; s.spikeCount = 0; s.hist = []; s.t = 0; },
+  stage,
+  run(phase, s, ui){
+    s.t += 1;
+    if (phase === 'accel') {
+      ui.activeLine(1);
+      const base = 1 + Math.sin(s.t*0.2)*0.3;
+      const spike = (Math.random() * s.shake);
+      s.accel = base + spike;
+      ui.setVar('accel', s.accel, { display: s.accel.toFixed(1)+'g', flash:true });
+      s.hist.push(s.accel); if (s.hist.length > 60) s.hist.shift();
+    } else if (phase === 'tilt') {
+      ui.activeLine(2);
+      s.tilt = Math.min(180, s.tilt + s.shake * 3);
+      if (s.shake < 2) s.tilt *= 0.92;
+      ui.setVar('tilt', Math.round(s.tilt), { display: Math.round(s.tilt)+'°' });
+    } else if (phase === 'check') {
+      ui.activeLine(3);
+      if (s.accel > s.threshold && Math.abs(s.tilt) > 60) s.spikeCount++;
+      else s.spikeCount = Math.max(0, s.spikeCount - 1);
+    } else if (phase === 'act') {
+      ui.activeLine(4);
+      if (s.spikeCount >= 2) { s.crashed = true; ui.check(4, true); ui.narrate('💥 DISARMED!'); }
+    }
+  }
+});
+</script>
+</body></html>

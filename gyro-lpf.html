@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gyro LPF Chain</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const W=500, H=40, off=10;
+  const n = Math.max(2, s.stages[0].length);
+  const labels = ['raw gyro', 'static LPF', 'dynamic notch @ '+s.motorHz+' Hz', 'D-term LPF'];
+  const colors = ['#E63946','#FF6B35','#FFD700','#40BF4A'];
+  return `<svg viewBox="0 0 540 240">
+    <rect x="10" y="10" width="${W+20}" height="${H*4 + 30}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    ${s.stages.map((arr, i) => {
+      const y0 = off + i*(H+8) + 10;
+      const pts = arr.map((v,j)=>`${(j/(n-1))*W},${H/2 - v*0.4}`).join(' ');
+      return `<g transform="translate(10,${y0})">
+        <text x="10" y="10" font-size="10" fill="${colors[i]}" font-weight="bold">${labels[i]}</text>
+        <line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="#333"/>
+        <polyline points="${pts}" fill="none" stroke="${colors[i]}" stroke-width="1.5"/>
+      </g>`;
+    }).join('')}
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🔇 Gyro Filter Chain',
+  subtitle: '4 filters, each kills a different noise. Watch it clean up!',
+  vars: {
+    motorHz: { label:'🔄 motor Hz', value: 180, color:'#FFD700' }
+  },
+  extras: [
+    { kind:'slider', id:'mS', label:'Motor freq',   min:80, max:350, value:180, step:10, onInput(v,s){ s.motorHz = v; }},
+    { kind:'slider', id:'nS', label:'Noise level',  min:0,  max:100, value:60,  step:5,  onInput(v,s){ s.noise = v/100; }}
+  ],
+  lines: [
+    'SAMPLE raw gyro',
+    'STATIC LPF: cuts high-freq hiss',
+    'DYNAMIC NOTCH: removes motor vibration peak',
+    'D-TERM LPF: final polish for D-calculation'
+  ],
+  phases: ['sample','lpf','notch','dterm'],
+  onInit(s){ s.motorHz = 180; s.noise = 0.6; s.stages = [[],[],[],[]]; s.t = 0; },
+  onReset(s){ s.stages = [[],[],[],[]]; s.t = 0; },
+  stage,
+  run(phase, s, ui){
+    s.t += 0.1;
+    if (phase === 'sample') {
+      ui.activeLine(1);
+      const hiss = (Math.random()-0.5) * 40 * s.noise;
+      const motor = Math.sin(s.t * s.motorHz * 0.05) * 30 * s.noise;
+      const signal = Math.sin(s.t * 2) * 20;
+      const raw = signal + hiss + motor;
+      s.stages[0].push(raw); if (s.stages[0].length > 60) s.stages[0].shift();
+    } else if (phase === 'lpf') {
+      ui.activeLine(2);
+      const prev = s.stages[1][s.stages[1].length-1] || 0;
+      const last = s.stages[0][s.stages[0].length-1];
+      s.stages[1].push(prev*0.7 + last*0.3);
+      if (s.stages[1].length > 60) s.stages[1].shift();
+    } else if (phase === 'notch') {
+      ui.activeLine(3);
+      const last = s.stages[1][s.stages[1].length-1] || 0;
+      const prev = s.stages[2][s.stages[2].length-1] || 0;
+      // crude notch: subtract motor-freq component estimate
+      const motorComp = Math.sin(s.t * s.motorHz * 0.05) * 30 * s.noise * 0.85;
+      s.stages[2].push(last - motorComp);
+      if (s.stages[2].length > 60) s.stages[2].shift();
+    } else if (phase === 'dterm') {
+      ui.activeLine(4);
+      const last = s.stages[2][s.stages[2].length-1] || 0;
+      const prev = s.stages[3][s.stages[3].length-1] || 0;
+      s.stages[3].push(prev*0.85 + last*0.15);
+      if (s.stages[3].length > 60) s.stages[3].shift();
+    }
+  }
+});
+</script>
+</body></html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latency Budget</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+const CHAIN = [
+  { id:'cam',     label:'📷 camera',    key:'cam',     color:'#E63946' },
+  { id:'vtx',     label:'📡 video TX',  key:'vtx',     color:'#FF6B35' },
+  { id:'goggles', label:'👓 goggles',   key:'goggles', color:'#FFD700' },
+  { id:'pilot',   label:'🧠 pilot',     key:'pilot',   color:'#9B5DE5' },
+  { id:'radio',   label:'🎮 radio',     key:'radio',   color:'#457B9D' },
+  { id:'fc',      label:'🧬 FC',        key:'fc',      color:'#2A9D8F' },
+  { id:'motor',   label:'⚙️ motor',     key:'motor',   color:'#40BF4A' }
+];
+function stage(s){
+  const total = CHAIN.reduce((t,c) => t + s[c.key], 0);
+  const W = 500;
+  const scaled = CHAIN.map(c => (s[c.key]/total) * W);
+  let x = 10;
+  return `<svg viewBox="0 0 540 220">
+    <rect x="10" y="10" width="${W+20}" height="80" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    ${CHAIN.map((c,i) => {
+      const w = scaled[i];
+      const bar = `<g>
+        <rect x="${x}" y="20" width="${w-2}" height="60" fill="${c.color}"/>
+        <text x="${x + w/2}" y="45" text-anchor="middle" font-size="10" font-weight="bold" fill="#FFF">${c.label.split(' ')[0]}</text>
+        <text x="${x + w/2}" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">${s[c.key]}</text>
+        <text x="${x + w/2}" y="76" text-anchor="middle" font-size="8" fill="#FFF">ms</text>
+      </g>`;
+      x += w;
+      return bar;
+    }).join('')}
+    <g transform="translate(20,120)">
+      <text font-size="14" font-weight="bold" fill="#264653">Total glass-to-glass: <tspan fill="${total>60?'#E63946':total>40?'#FFD700':'#40BF4A'}">${total} ms</tspan></text>
+      <text y="22" font-size="11" fill="#666">pro racers: &lt; 30 ms · typical digital: 30-50 ms · typical analog: 20-40 ms</text>
+      <text y="42" font-size="13" font-weight="bold" fill="${total>60?'#E63946':'#264653'}">${total>80?'😵 unflyable':total>50?'😬 sluggish':total>30?'🙂 OK':'🔥 pro level'}</text>
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '⏱️ Latency Budget',
+  subtitle: 'Every link adds ms. Total = pilot feel.',
+  vars: {
+    total: { label:'⏱️ total', value: 0, color:'#FF6B35', note:'ms' }
+  },
+  extras: CHAIN.map(c => ({
+    kind:'slider', id: c.id, label: c.label + ' ms', min:1, max:30, value:5, step:1,
+    onInput(v, s){ s[c.key] = v; }
+  })),
+  lines: [
+    'SUM each link\'s latency',
+    '< 30ms = pro',
+    '30-50ms = OK',
+    '> 60ms = sluggish/unflyable'
+  ],
+  phases: ['sum','rate'],
+  onInit(s){ CHAIN.forEach(c => s[c.key] = 5); },
+  onReset(s){ CHAIN.forEach(c => s[c.key] = 5); },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'sum') {
+      ui.activeLine(1);
+      const t = CHAIN.reduce((t,c) => t + s[c.key], 0);
+      ui.setVar('total', t, { display: t+' ms', flash:true });
+    } else if (phase === 'rate') {
+      ui.activeLine(2);
+      const t = s.total;
+      ui.narrate(t<30?'🔥 pro':t<50?'🙂 OK':t<80?'😬 sluggish':'😵 unflyable');
+    }
+  }
+});
+</script>
+</body></html>

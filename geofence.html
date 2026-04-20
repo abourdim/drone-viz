@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geofence</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+const FENCE = { cx:270, cy:140, r:150 };
+function stage(s){
+  return `<svg viewBox="0 0 540 280">
+    <rect width="540" height="280" fill="#F4E8CB"/>
+    <circle cx="${FENCE.cx}" cy="${FENCE.cy}" r="${FENCE.r}" fill="#FFD70022" stroke="#E63946" stroke-width="3" stroke-dasharray="8 4"/>
+    <circle cx="${FENCE.cx}" cy="${FENCE.cy}" r="${FENCE.r - s.margin}" fill="none" stroke="#FFD700" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <text x="${FENCE.cx}" y="${FENCE.cy - FENCE.r - 6}" text-anchor="middle" font-size="11" font-weight="bold" fill="#E63946">GEOFENCE</text>
+    <!-- drone + velocity -->
+    <g transform="translate(${s.drone.x},${s.drone.y})">
+      <circle r="10" fill="#264653" stroke="#FFD700" stroke-width="2"/>
+    </g>
+    <line x1="${s.drone.x}" y1="${s.drone.y}" x2="${s.drone.x + s.vel.x*6}" y2="${s.drone.y + s.vel.y*6}" stroke="#457B9D" stroke-width="3" marker-end="url(#vA)"/>
+    ${s.braking ? `<line x1="${s.drone.x}" y1="${s.drone.y}" x2="${s.drone.x + s.brake.x*6}" y2="${s.drone.y + s.brake.y*6}" stroke="#E63946" stroke-width="3" marker-end="url(#bA)"/>` : ''}
+    <defs>
+      <marker id="vA" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#457B9D"/></marker>
+      <marker id="bA" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#E63946"/></marker>
+    </defs>
+    <text x="20" y="265" font-size="12" font-weight="bold" fill="${s.braking?'#E63946':'#264653'}">${s.braking?'🛑 braking (near edge)':'✅ inside, free flight'}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🚧 Geofence',
+  subtitle: 'Soft wall — drone brakes before the edge!',
+  vars: {
+    dist:   { label:'📏 to edge', value: 0, color:'#E63946', note:'px' },
+    brake:  { label:'🛑 brake',   value: 0, color:'#FF6B35' }
+  },
+  extras: [
+    { kind:'slider', id:'mS', label:'Margin', min:10, max:80, value:30, step:5, onInput(v,s){ s.margin = v; }},
+    { kind:'slider', id:'vS', label:'Stick speed', min:0, max:20, value:8, step:1, onInput(v,s){ s.stickSpeed = v; }}
+  ],
+  lines: [
+    'READ position relative to fence center',
+    'COMPUTE distance to fence edge',
+    'IF within margin → add brake vector inward',
+    'APPLY velocity'
+  ],
+  phases: ['read','dist','brake','apply'],
+  onInit(s){
+    s.margin = 30; s.stickSpeed = 8;
+    s.drone = { x: 270, y: 140 }; s.vel = { x: 8, y: 0 }; s.brake = { x:0, y:0 };
+    s.braking = false;
+  },
+  onReset(s){
+    s.drone = { x: 270, y: 140 }; s.vel = { x: 8, y: 0 }; s.brake = { x:0, y:0 }; s.braking = false;
+  },
+  stage,
+  run(phase, s, ui){
+    const dx = s.drone.x - FENCE.cx, dy = s.drone.y - FENCE.cy;
+    const r = Math.hypot(dx, dy);
+    const edge = FENCE.r - r;
+    if (phase === 'read') { ui.activeLine(1); s.vel = { x: s.stickSpeed, y: 0 }; }
+    else if (phase === 'dist') { ui.activeLine(2); ui.setVar('dist', Math.round(edge), { display: Math.round(edge)+'px', flash:true }); }
+    else if (phase === 'brake') {
+      ui.activeLine(3);
+      if (edge < s.margin) {
+        const k = (s.margin - edge) / s.margin;
+        s.brake = { x: -(dx/r)*k*s.stickSpeed, y: -(dy/r)*k*s.stickSpeed };
+        s.braking = true;
+        ui.setVar('brake', Math.round(Math.hypot(s.brake.x,s.brake.y)*10)/10, { display: Math.hypot(s.brake.x,s.brake.y).toFixed(1) });
+      } else { s.brake = { x:0, y:0 }; s.braking = false; ui.setVar('brake', 0, { display:'0' }); }
+    } else if (phase === 'apply') {
+      ui.activeLine(4);
+      s.drone.x += s.vel.x + s.brake.x;
+      s.drone.y += s.vel.y + s.brake.y;
+    }
+  }
+});
+</script>
+</body></html>

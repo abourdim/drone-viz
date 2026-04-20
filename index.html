@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="space">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Drone Viz — Workshop DIY</title>
+  <meta name="description" content="32 phase-stepped visualizers for drone subsystems — a Workshop-DIY gallery." />
+  <meta name="author" content="Workshop-DIY — abourdim" />
+  <meta property="og:title" content="Drone Viz — Workshop DIY" />
+  <meta property="og:description" content="32 phase-stepped visualizers for drone subsystems." />
+  <meta property="og:type" content="website" />
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#08091a" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Righteous&family=Tajawal:wght@400;500;700&family=Bangers&family=Orbitron:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="wd-style.css" />
+  <link rel="stylesheet" href="wd-overlay.css" />
+</head>
+
+<body>
+  <div class="splash" id="splash" onclick="dismissSplash()">
+    <div class="splash-inner">
+      <div class="splash-logo" id="splashLogo"></div>
+      <div class="splash-title">Drone Viz</div>
+      <div class="splash-sub">🚁 sticks · 🧬 PID · 🛡️ failsafes</div>
+      <div class="splash-hint" data-i18n="splashHint">tap to skip</div>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="deco-band top-band" aria-hidden="true"></div>
+
+    <div class="rows-container">
+      <div class="header">
+        <div class="bismillah" aria-hidden="true">
+          <span class="bism-ornament">&#x2726;</span>
+          بِسْمِ ٱللَّٰهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ
+          <span class="bism-ornament">&#x2726;</span>
+        </div>
+
+        <div class="title-block">
+          <div class="logo-wrap" id="logoWrap"></div>
+          <div>
+            <h1 data-i18n="title">Drone Viz</h1>
+            <div class="subtitle">🚁 sticks · 🧬 PID · 🛡️ failsafes</div>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <div class="header-buttons">
+            <button id="helpBtn" class="btn-icon-only" aria-label="Help">❓</button>
+            <button id="settingsBtn" class="btn-icon-only" aria-label="Settings">⚙️</button>
+            <button id="logBtn" class="btn-icon-only" aria-label="Activity Log">📜</button>
+          </div>
+          <div class="status-pill" id="statusPill">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">32 visualizers</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="mainCard">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span class="icon">🚁</span> <span data-i18n="mainSection">Gallery</span></div>
+            <div class="card-subtitle">32 phase-stepped drone visualizers <span class="version-tag">v1.2</span></div>
+          </div>
+        </div>
+
+        <div class="viz-section-label">⭐ Top 5 — Must-Ships</div>
+        <div class="viz-grid">
+          <a class="viz-card top5" href="motor-mixer.html"><div class="vc-emoji">🚁</div><div class="vc-name">Motor Mixer</div><div class="vc-desc">4 sticks → 4 motor speeds. The foundation.</div></a>
+          <a class="viz-card top5" href="fc-stack.html"><div class="vc-emoji">🧬</div><div class="vc-name">Flight Control Stack</div><div class="vc-desc">6-stage pipeline from stick to motor.</div></a>
+          <a class="viz-card top5" href="failsafe-fsm.html"><div class="vc-emoji">🛡️</div><div class="vc-name">Failsafe FSM</div><div class="vc-desc">ARMED → FLYING → RTH. The drone-saving logic.</div></a>
+          <a class="viz-card top5" href="pid-dance.html"><div class="vc-emoji">💃</div><div class="vc-name">PID Dance-Off</div><div class="vc-desc">3 tunes race to setpoint — tuning live.</div></a>
+          <a class="viz-card top5" href="gyro-lpf.html"><div class="vc-emoji">🔇</div><div class="vc-name">Gyro LPF Chain</div><div class="vc-desc">4 filters kill noise stage-by-stage.</div></a>
+        </div>
+      </div>
+
+      <details class="collapsible" open>
+        <summary><span class="icon">🎛️</span> Control &amp; Mixing</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="flight-modes.html"><div class="vc-emoji">🎚️</div><div class="vc-name">Flight Modes</div><div class="vc-desc">Rate vs Angle vs Horizon — 3 behaviors.</div></a>
+            <a class="viz-card" href="airmode.html"><div class="vc-emoji">🛡️</div><div class="vc-name">Airmode / Anti-windup</div><div class="vc-desc">Why zero throttle + wind = flip.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">🔋</span> Motors, Props, Power</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="thrust-curve.html"><div class="vc-emoji">💪</div><div class="vc-name">Thrust Curve</div><div class="vc-desc">Will it fly? Non-linear thrust vs weight.</div></a>
+            <a class="viz-card" href="prop-balance.html"><div class="vc-emoji">🌀</div><div class="vc-name">Prop Balance</div><div class="vc-desc">Vibration peak, killed by notch filter.</div></a>
+            <a class="viz-card" href="esc-protocols.html"><div class="vc-emoji">📡</div><div class="vc-name">ESC Protocols</div><div class="vc-desc">PWM → OneShot → Multishot → DShot.</div></a>
+            <a class="viz-card" href="battery-sag.html"><div class="vc-emoji">🔋</div><div class="vc-name">Battery Sag</div><div class="vc-desc">Punch throttle → voltage drops → thrust drops.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">📡</span> Sensors &amp; Fusion</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="altitude-hold.html"><div class="vc-emoji">🎚️</div><div class="vc-name">Altitude Hold</div><div class="vc-desc">Baro + accel + lidar fused solid.</div></a>
+            <a class="viz-card" href="gps-glitch.html"><div class="vc-emoji">📍</div><div class="vc-name">GPS Glitch + EKF</div><div class="vc-desc">Outlier rejection keeps drone on-track.</div></a>
+            <a class="viz-card" href="optical-flow.html"><div class="vc-emoji">📷</div><div class="vc-name">Optical Flow</div><div class="vc-desc">Down-camera pixel shift = velocity.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">✈️</span> Aerodynamics</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="aoa-stall.html"><div class="vc-emoji">✈️</div><div class="vc-name">AoA / Stall</div><div class="vc-desc">Too much angle → lift collapses.</div></a>
+            <a class="viz-card" href="propwash.html"><div class="vc-emoji">🌀</div><div class="vc-name">Propwash</div><div class="vc-desc">Descent through own exhaust → oscillation.</div></a>
+            <a class="viz-card" href="wind-gps.html"><div class="vc-emoji">🌬️</div><div class="vc-name">Wind vs GPS Hold</div><div class="vc-desc">GPS tilts drone into wind.</div></a>
+            <a class="viz-card" href="ground-effect.html"><div class="vc-emoji">🏖️</div><div class="vc-name">Ground Effect</div><div class="vc-desc">Bonus thrust near ground.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">🛡️</span> Safety</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="arming-checks.html"><div class="vc-emoji">✅</div><div class="vc-name">Arming Checks</div><div class="vc-desc">10 green lights before props spin.</div></a>
+            <a class="viz-card" href="crash-detector.html"><div class="vc-emoji">💥</div><div class="vc-name">Crash Detector</div><div class="vc-desc">Spike + wrong orientation → disarm.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">🗺️</span> Navigation</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="waypoint.html"><div class="vc-emoji">🗺️</div><div class="vc-name">Waypoint Mission</div><div class="vc-desc">Pure pursuit — lookahead tunes cornering.</div></a>
+            <a class="viz-card" href="rth.html"><div class="vc-emoji">🏠</div><div class="vc-name">Return-to-Home</div><div class="vc-desc">Climb → straight → descend.</div></a>
+            <a class="viz-card" href="geofence.html"><div class="vc-emoji">🚧</div><div class="vc-name">Geofence</div><div class="vc-desc">Soft wall brakes before edge.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">🎬</span> FPV &amp; Video</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="latency.html"><div class="vc-emoji">⏱️</div><div class="vc-name">Latency Budget</div><div class="vc-desc">Every link adds ms — total = pilot feel.</div></a>
+            <a class="viz-card" href="analog-digital.html"><div class="vc-emoji">📺</div><div class="vc-name">Analog vs Digital</div><div class="vc-desc">Gradual snow vs digital cliff.</div></a>
+            <a class="viz-card" href="race-gate.html"><div class="vc-emoji">🏁</div><div class="vc-name">Race Gate + Cam Tilt</div><div class="vc-desc">Why racers and freestylers tilt differently.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">📊</span> Telemetry &amp; Logs</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="blackbox.html"><div class="vc-emoji">📼</div><div class="vc-name">Black Box Replay</div><div class="vc-desc">Scrub the log, spot the oscillation.</div></a>
+            <a class="viz-card" href="osd.html"><div class="vc-emoji">📺</div><div class="vc-name">OSD</div><div class="vc-desc">Pilot dashboard on video overlay.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">🔧</span> Exotic Machines</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="tricopter.html"><div class="vc-emoji">🛸</div><div class="vc-name">Tricopter Yaw</div><div class="vc-desc">Tail servo tilts the motor — weird but works.</div></a>
+            <a class="viz-card" href="swashplate.html"><div class="vc-emoji">🚁</div><div class="vc-name">CP Heli Swashplate</div><div class="vc-desc">Collective + cyclic → AoA oscillates.</div></a>
+            <a class="viz-card" href="vtol.html"><div class="vc-emoji">✈️</div><div class="vc-name">VTOL Transition</div><div class="vc-desc">Props ↔ wings as airspeed crosses threshold.</div></a>
+            <a class="viz-card" href="gimbal.html"><div class="vc-emoji">📸</div><div class="vc-name">Gimbal Stabilizer</div><div class="vc-desc">Cancel drone motion — vibration fights back.</div></a>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapsible">
+        <summary><span class="icon">🚀</span> Other galleries</summary>
+        <div class="card">
+          <div class="viz-grid">
+            <a class="viz-card" href="../electro-viz/index.html"><div class="vc-emoji">⚡</div><div class="vc-name">Electro Viz →</div><div class="vc-desc">70 electronics foundations for kids.</div></a>
+            <a class="viz-card" href="../maker-viz/index.html"><div class="vc-emoji">🛠️</div><div class="vc-name">Maker Viz →</div><div class="vc-desc">17 maker/robotics visualizers.</div></a>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <footer class="app-footer">
+      <span class="footer-text">powered by <a href="https://workshop-diy.org" target="_blank" rel="noopener">workshop-diy.org</a></span>
+      <span class="hijri-date" id="hijriDate"></span>
+    </footer>
+
+    <div class="deco-band bottom-band" aria-hidden="true"></div>
+  </div>
+
+  <canvas id="matrixCanvas" class="matrix-canvas"></canvas>
+  <div id="debugPanel" class="debug-panel"><span id="debugFps">0 FPS</span><span id="debugMem">0 MB</span></div>
+
+  <!-- Help -->
+  <div class="sidebar-overlay" id="helpOverlay"></div>
+  <aside class="sidebar sidebar-left" id="helpPanel" aria-label="Help" role="dialog" aria-modal="true">
+    <div class="sidebar-header">
+      <span class="sidebar-title">❓ Help</span>
+      <button id="helpCloseBtn" class="btn-icon-only" aria-label="Close">✕</button>
+    </div>
+    <div class="help-tabs">
+      <button class="help-tab active" data-tab="faq">FAQ</button>
+      <button class="help-tab" data-tab="howto">How-To</button>
+      <button class="help-tab" data-tab="wiki">Wiki</button>
+    </div>
+    <div class="sidebar-body">
+      <div class="help-content active" id="helpFaq">
+        <details class="help-item"><summary>What is this?</summary><p>A gallery of 32 phase-stepped visualizers for drone subsystems. Each shows code executing one phase at a time.</p></details>
+        <details class="help-item"><summary>I'm new to drones — where do I start?</summary><p>The ⭐ Top 5 section. Open Motor Mixer first, then FC Stack. Everything else builds on those two.</p></details>
+        <details class="help-item"><summary>Why separate galleries?</summary><p>Maker = general sensors/motors/code. Drone = flight-specific (PID, IMU, failsafes, FPV, VTOL).</p></details>
+        <details class="help-item"><summary>Is my data private?</summary><p>Yes. Everything runs locally. No tracking.</p></details>
+      </div>
+      <div class="help-content" id="helpHowto">
+        <div class="help-step"><span class="help-step-num">1</span><p>Open a visualizer card.</p></div>
+        <div class="help-step"><span class="help-step-num">2</span><p>Press STEP for manual pacing, PLAY for auto.</p></div>
+        <div class="help-step"><span class="help-step-num">3</span><p>Move per-viz sliders to change inputs live.</p></div>
+        <div class="help-step"><span class="help-step-num">4</span><p>Reach the end? Try the next category.</p></div>
+      </div>
+      <div class="help-content" id="helpWiki">
+        <div class="wiki-entry"><h3>🧬 Engine</h3><p>~200-line <code>MakerViz.create()</code> shared by every viz. State + phases + stage + code lines.</p></div>
+        <div class="wiki-entry"><h3>🎨 Themes</h3><p>9 Workshop-DIY themes. Space fits the drone vibe. Konami code → retro CRT.</p></div>
+        <div class="wiki-entry"><h3>🔗 Sister gallery</h3><p><a href="../maker-viz/index.html">Maker Viz</a> has general robotics.</p></div>
+      </div>
+    </div>
+    <div class="sidebar-footer"><span>Workshop DIY</span><span class="badge"><strong>v1.2</strong></span></div>
+  </aside>
+
+  <!-- Settings -->
+  <div class="sidebar-overlay" id="settingsOverlay"></div>
+  <aside class="sidebar" id="settingsPanel" aria-label="Settings" role="dialog" aria-modal="true">
+    <div class="sidebar-header">
+      <span class="sidebar-title">⚙️ Settings</span>
+      <button id="settingsCloseBtn" class="btn-icon-only" aria-label="Close">✕</button>
+    </div>
+    <div class="sidebar-body">
+      <div class="sidebar-group">
+        <label class="sidebar-label">Language</label>
+        <select id="langSelect" class="sidebar-select" aria-label="Language">
+          <option value="en" selected>🇬🇧 EN</option>
+          <option value="fr">🇫🇷 FR</option>
+          <option value="ar">🇩🇿 عربي</option>
+        </select>
+      </div>
+      <div class="sidebar-group">
+        <label class="sidebar-label">Theme</label>
+        <select id="themeSelect" class="sidebar-select" aria-label="Theme">
+          <option value="space" selected>Space</option>
+          <option value="robot">Robot</option>
+          <option value="jungle">Jungle</option>
+          <option value="mosque-gold">Mosque</option>
+          <option value="zellige">Zellige</option>
+          <option value="andalus">Andalus</option>
+          <option value="riad">Riad</option>
+          <option value="medina">Medina</option>
+        </select>
+      </div>
+      <div class="sidebar-group">
+        <label class="toggle-ctrl"><input type="checkbox" id="soundToggle" class="checkbox-ctrl" /><span>🔊 Sound effects</span></label>
+      </div>
+      <div class="sidebar-group"><button id="whisperBtn" class="btn-sm" style="width:100%"><span class="btn-icon">🎤</span> Whisper mode</button></div>
+      <div class="sidebar-group">
+        <button id="breathingBtn" class="btn-sm" style="width:100%"><span class="btn-icon">🫁</span> Breathing guide</button>
+        <div class="dhikr-display" id="dhikrDisplay" style="display:none">
+          <span class="dhikr-label">سبحان الله</span>
+          <span class="dhikr-count" id="dhikrCounter">0</span>
+          <button id="dhikrBtn" class="btn-sm primary">Tap</button>
+        </div>
+      </div>
+      <div class="sidebar-group"><button id="musicBtn" class="btn-sm" style="width:100%"><span class="btn-icon">🎵</span> Music reactive</button></div>
+    </div>
+    <div class="sidebar-footer"><span>Workshop DIY</span><span class="badge"><strong>v1.2</strong></span></div>
+  </aside>
+
+  <!-- Log -->
+  <aside class="sidebar" id="logPanel" aria-label="Activity Log">
+    <div class="resize-handle" id="logResizeHandle"></div>
+    <div class="sidebar-header">
+      <span class="sidebar-title">📜 Activity Log</span>
+      <div class="log-controls">
+        <button id="clearLogBtn" class="btn-sm"><span class="btn-icon">🧹</span>Clear</button>
+        <button id="copyLogBtn" class="btn-sm"><span class="btn-icon">📋</span>Copy</button>
+        <button id="exportLogBtn" class="btn-sm"><span class="btn-icon">💾</span>Export</button>
+        <button id="logCloseBtn" class="btn-icon-only" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div class="log-filters" id="logFilters">
+      <button class="log-filter active" data-filter="all">All</button>
+      <button class="log-filter" data-filter="info">Info</button>
+      <button class="log-filter" data-filter="success">✓</button>
+      <button class="log-filter" data-filter="error">✗</button>
+      <button class="log-filter" data-filter="tx">TX</button>
+      <button class="log-filter" data-filter="rx">RX</button>
+    </div>
+    <div class="sidebar-body log-body"><div class="log" id="logContainer" aria-live="polite"></div></div>
+    <div class="sidebar-footer"><span>Events &amp; messages</span><span class="badge"><strong>v1.2</strong></span></div>
+  </aside>
+
+  <div id="toastIndicator" class="toast-indicator">
+    <div class="toast-inner"><div class="spinner"></div><div id="toastMessage" class="toast-text">Working…</div></div>
+  </div>
+
+  <script src="wd-script.js"></script>
+</body>
+</html>

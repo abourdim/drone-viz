@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Airmode / Anti-windup</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const draw = (x, label, angle, integ, crashed, color) => `
+    <g transform="translate(${x},150)">
+      <text y="-100" text-anchor="middle" font-size="12" font-weight="bold" fill="${color}">${label}</text>
+      <g transform="rotate(${crashed ? 170 : angle})">
+        <rect x="-60" y="-5" width="120" height="10" fill="${crashed?'#E63946':color}" stroke="#264653" stroke-width="2" rx="3"/>
+      </g>
+      <rect x="-55" y="30" width="110" height="14" fill="#DDD" stroke="#264653" rx="3"/>
+      <rect x="-55" y="30" width="${Math.max(0, Math.min(110, 55 + integ*3))}" height="14" fill="#FFD700"/>
+      <text y="60" text-anchor="middle" font-size="10" fill="#264653">I-term: ${integ.toFixed(1)}</text>
+      ${crashed ? '<text y="78" text-anchor="middle" font-size="14" font-weight="bold" fill="#E63946">💥 CRASH</text>' : ''}
+    </g>`;
+  return `<svg viewBox="0 0 540 260">
+    <rect width="540" height="260" fill="#F4E8CB"/>
+    <rect x="0" y="220" width="540" height="40" fill="#8B5A2B"/>
+    ${draw(150, 'NO airmode', s.angleNoAir, s.integNoAir, s.crashedNoAir, '#E63946')}
+    ${draw(380, 'AIRMODE ON', s.angleAir,   s.integAir,   false, '#40BF4A')}
+    <text x="270" y="240" text-anchor="middle" font-size="11" fill="#264653">throttle=${s.throttle}% · disturbance builds error while motors are idle</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🛡️ Airmode — Prevents Landing Flips',
+  subtitle: 'Zero throttle + disturbance = I-term winds up. Airmode clamps it!',
+  vars: {
+    throttle: { label:'⚡ throttle', value: 0, color:'#264653', note:'% idle' },
+    integNoAir: { label:'💣 I-term (off)', value: 0, color:'#E63946' },
+    integAir:   { label:'🛡️ I-term (on)',  value: 0, color:'#40BF4A' }
+  },
+  extras: [
+    { kind:'slider', id:'thS', label:'Throttle %', min:0, max:100, value:0, step:5, onInput(v,s){ s.throttle = v; }},
+    { kind:'slider', id:'dS',  label:'Wind gust',  min:-30, max:30, value:-15, step:5, onInput(v,s){ s.disturb = v; }}
+  ],
+  lines: [
+    'READ throttle + disturbance',
+    'NO airmode: I accumulates even at 0 throttle',
+    'AIRMODE: clamp I when motors can\'t correct',
+    'RESULT: no airmode → flip on landing'
+  ],
+  phases: ['read','noair','air','apply'],
+  onInit(s){ s.throttle = 0; s.disturb = -15; s.angleNoAir = 0; s.angleAir = 0; s.integNoAir = 0; s.integAir = 0; s.crashedNoAir = false; },
+  onReset(s){ s.throttle = 0; s.disturb = -15; s.angleNoAir = 0; s.angleAir = 0; s.integNoAir = 0; s.integAir = 0; s.crashedNoAir = false; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') { ui.activeLine(1); ui.narrate('🌬️ wind nudges drone...'); }
+    else if (phase === 'noair') {
+      ui.activeLine(2);
+      const err = s.disturb;
+      s.integNoAir += err * 0.3; // unbounded
+      s.angleNoAir += err * 0.2 + s.integNoAir * 0.05;
+      ui.setVar('integNoAir', s.integNoAir, { display: s.integNoAir.toFixed(1), flash:true });
+      if (Math.abs(s.angleNoAir) > 80) s.crashedNoAir = true;
+    }
+    else if (phase === 'air') {
+      ui.activeLine(3);
+      const err = s.disturb;
+      if (s.throttle > 5) s.integAir += err * 0.3;
+      s.integAir = Math.max(-10, Math.min(10, s.integAir));  // clamp
+      s.angleAir += err * 0.2 + s.integAir * 0.05;
+      s.angleAir *= 0.95;
+      ui.setVar('integAir', s.integAir, { display: s.integAir.toFixed(1), flash:true });
+    }
+    else if (phase === 'apply') { ui.activeLine(4); ui.narrate(s.crashedNoAir ? '💥 no-airmode crashed!' : 'ok so far...'); }
+  }
+});
+</script>
+</body></html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VTOL Transition</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const tilt = (1 - s.airspeed/20) * 90; // 90° = hover, 0° = forward
+  const wingLift = Math.min(1, s.airspeed/15);
+  const propThrust = 1 - wingLift*0.7;
+  return `<svg viewBox="0 0 540 280">
+    <rect width="540" height="280" fill="#B0E0E6"/>
+    <rect x="0" y="240" width="540" height="40" fill="#8B5A2B"/>
+    <g transform="translate(270,150)">
+      <!-- wing body -->
+      <rect x="-80" y="-10" width="160" height="20" rx="4" fill="#264653" stroke="#1D3557" stroke-width="2"/>
+      <!-- tail -->
+      <polygon points="80,0 110,-15 110,15" fill="#264653"/>
+      <!-- tilting motors at wingtips -->
+      <g transform="translate(-80,0) rotate(${-tilt})"><rect x="-8" y="-30" width="16" height="30" fill="#FFD700" stroke="#264653" stroke-width="2"/><circle r="14" fill="#E63946" opacity="${propThrust}"/></g>
+      <g transform="translate(80,0) rotate(${-tilt})"><rect x="-8" y="-30" width="16" height="30" fill="#FFD700" stroke="#264653" stroke-width="2"/><circle r="14" fill="#E63946" opacity="${propThrust}"/></g>
+    </g>
+    <g transform="translate(20,40)">
+      <text font-size="12" font-weight="bold" fill="#264653">airspeed: ${s.airspeed} m/s</text>
+      <text y="18" font-size="12" font-weight="bold" fill="#457B9D">motor tilt: ${(90-tilt).toFixed(0)}°</text>
+      <text y="36" font-size="12" font-weight="bold" fill="#40BF4A">wing lift: ${(wingLift*100).toFixed(0)}%</text>
+      <text y="54" font-size="12" font-weight="bold" fill="#E63946">prop thrust: ${(propThrust*100).toFixed(0)}%</text>
+    </g>
+    <text x="270" y="270" text-anchor="middle" font-size="11" font-weight="bold" fill="#264653">${s.airspeed<5?'🚁 HOVER mode':s.airspeed>15?'✈️ CRUISE mode':'🔄 TRANSITION'}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '✈️ VTOL Transition',
+  subtitle: 'Props ↔ wings as airspeed changes — the hardest autopilot problem!',
+  vars: {
+    airspeed:  { label:'💨 airspeed', value: 0, color:'#457B9D', note:'m/s' },
+    tiltAngle: { label:'🎛️ tilt',    value: 90, color:'#FF6B35', note:'°' }
+  },
+  extras: [
+    { kind:'slider', id:'aS', label:'Airspeed', min:0, max:20, value:0, step:1, onInput(v,s){ s.airspeed = v; }}
+  ],
+  lines: [
+    'READ airspeed',
+    'COMPUTE tilt: 90° hover → 0° cruise',
+    'Wing lift grows, prop lift shrinks',
+    'Hand off smoothly — no altitude loss'
+  ],
+  phases: ['read','tilt','handoff','check'],
+  onInit(s){ s.airspeed = 0; s.tiltAngle = 90; },
+  onReset(s){ s.airspeed = 0; s.tiltAngle = 90; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') ui.activeLine(1);
+    else if (phase === 'tilt') { ui.activeLine(2); s.tiltAngle = Math.max(0, 90 - s.airspeed*4.5); ui.setVar('tiltAngle', Math.round(s.tiltAngle), { display: Math.round(s.tiltAngle)+'°', flash:true }); }
+    else if (phase === 'handoff') ui.activeLine(3);
+    else if (phase === 'check') { ui.activeLine(4); ui.narrate(s.airspeed<5?'hover':s.airspeed>15?'cruise':'transitioning'); }
+  }
+});
+</script>
+</body></html>

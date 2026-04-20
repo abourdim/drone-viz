@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Altitude Hold</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const W=500, H=160;
+  const n = s.histTrue.length || 2;
+  const draw = (arr, color, width=2) => `<polyline points="${arr.map((v,i)=>`${(i/(n-1))*W},${H - (v/20)*H}`).join(' ')}" fill="none" stroke="${color}" stroke-width="${width}" transform="translate(10,10)"/>`;
+  return `<svg viewBox="0 0 540 240">
+    <rect x="10" y="10" width="${W+20}" height="${H+20}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    ${draw(s.histTrue, '#FFFFFF', 1.5)}
+    ${draw(s.histBaro, '#E63946', 2)}
+    ${s.useLidar ? draw(s.histFused, '#40BF4A', 3) : ''}
+    <text x="20" y="28" font-size="10" fill="#FFF" font-weight="bold">true altitude</text>
+    <text x="20" y="42" font-size="10" fill="#E63946" font-weight="bold">baro only (noisy)</text>
+    ${s.useLidar ? '<text x="20" y="56" font-size="10" fill="#40BF4A" font-weight="bold">fused (lidar+baro+accel)</text>' : ''}
+    <text x="20" y="210" font-size="12" fill="#264653" font-weight="bold">true: ${s.alt.toFixed(2)}m · baro: ${s.baro.toFixed(2)}m ${s.useLidar?`· fused: ${s.fused.toFixed(2)}m`:''}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🎚️ Altitude Hold Fusion',
+  subtitle: 'Baro is noisy, lidar is precise — fuse them!',
+  vars: {
+    baro:  { label:'📟 baro',  value: 0, color:'#E63946' },
+    fused: { label:'🛡️ fused', value: 0, color:'#40BF4A' }
+  },
+  extras: [
+    { kind:'toggle', id:'wT', label:'🌬️ Wind gusts', value:true, onToggle(v,s){ s.gusts = v; }},
+    { kind:'toggle', id:'lT', label:'📡 Lidar on',    value:true, onToggle(v,s){ s.useLidar = v; }}
+  ],
+  lines: [
+    'READ barometer (noisy ±30cm)',
+    'READ lidar (precise ±2cm, only near ground)',
+    'READ accel (drifty but fast)',
+    'FUSE via complementary / Kalman → smooth hold'
+  ],
+  phases: ['baro','lidar','accel','fuse'],
+  onInit(s){ s.gusts = true; s.useLidar = true; s.alt = 5; s.baro = 5; s.fused = 5; s.histTrue = []; s.histBaro = []; s.histFused = []; s.t = 0; },
+  onReset(s){ s.alt = 5; s.baro = 5; s.fused = 5; s.histTrue = []; s.histBaro = []; s.histFused = []; s.t = 0; },
+  stage,
+  run(phase, s, ui){
+    s.t += 0.1;
+    if (phase === 'baro') {
+      ui.activeLine(1);
+      if (s.gusts) s.alt = 5 + Math.sin(s.t*0.6)*0.2;
+      s.baro = s.alt + (Math.random()-0.5)*0.6;
+      ui.setVar('baro', s.baro, { display: s.baro.toFixed(2)+'m', flash:true });
+    } else if (phase === 'lidar') { ui.activeLine(2); s.lidar = s.alt + (Math.random()-0.5)*0.04; }
+    else if (phase === 'accel') { ui.activeLine(3); }
+    else if (phase === 'fuse') {
+      ui.activeLine(4);
+      if (s.useLidar) s.fused = 0.8*s.lidar + 0.2*s.baro;
+      else s.fused = s.baro;
+      ui.setVar('fused', s.fused, { display: s.fused.toFixed(2)+'m', flash:true });
+      s.histTrue.push(s.alt); s.histBaro.push(s.baro); s.histFused.push(s.fused);
+      if (s.histTrue.length > 80) { s.histTrue.shift(); s.histBaro.shift(); s.histFused.shift(); }
+    }
+  }
+});
+</script>
+</body></html>

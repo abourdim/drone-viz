@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Return-to-Home</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+const TREES = [{x:200,y:150,r:40},{x:320,y:120,r:50}];
+function stage(s){
+  return `<svg viewBox="0 0 540 280">
+    <rect width="540" height="280" fill="#F4E8CB"/>
+    ${TREES.map(t=>`<circle cx="${t.x}" cy="${t.y}" r="${t.r}" fill="#40BF4A" opacity="0.7" stroke="#2A5E29" stroke-width="2"/>`).join('')}
+    <circle cx="${s.home.x}" cy="${s.home.y}" r="12" fill="#E63946"/>
+    <text x="${s.home.x}" y="${s.home.y+30}" text-anchor="middle" font-size="11" font-weight="bold" fill="#E63946">HOME</text>
+    <!-- path -->
+    <polyline points="${s.path.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#FFD700" stroke-width="3" stroke-dasharray="4 3"/>
+    <!-- drone -->
+    <g transform="translate(${s.drone.x},${s.drone.y})">
+      <circle r="10" fill="#264653" stroke="#FFD700" stroke-width="2"/>
+      <text y="4" text-anchor="middle" font-size="10" fill="#FFD700">🚁</text>
+    </g>
+    <g transform="translate(20,20)">
+      <text font-size="12" font-weight="bold" fill="#264653">battery: ${s.batt}%</text>
+      <text y="18" font-size="12" font-weight="bold" fill="${s.mode==='STRAIGHT'?'#E63946':s.mode==='CLIMB'?'#FF6B35':'#40BF4A'}">mode: ${s.mode}</text>
+      <text y="36" font-size="11" fill="#264653">altitude: ${s.alt}m (tree height = 30m)</text>
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🏠 Return-to-Home',
+  subtitle: 'Climb → straight → descend. Don\'t hit the trees!',
+  vars: {
+    batt: { label:'🔋 batt',  value: 20, color:'#E63946', note:'%' },
+    alt:  { label:'🎈 alt',   value: 5,  color:'#2A9D8F', note:'m' },
+    mode: { label:'🧠 mode',  value: 'FLYING', color:'#FF6B35' }
+  },
+  extras: [
+    { kind:'slider', id:'rthAlt', label:'RTH altitude (m)', min:10, max:60, value:40, step:5, onInput(v,s){ s.rthAlt = v; }}
+  ],
+  lines: [
+    'DETECT low battery → trigger RTH',
+    'CLIMB to safe altitude (above obstacles)',
+    'FLY STRAIGHT toward home',
+    'DESCEND + land'
+  ],
+  phases: ['detect','climb','straight','land'],
+  onInit(s){ s.rthAlt = 40; s.batt = 20; s.alt = 5; s.home = {x:80,y:230}; s.drone = {x:480,y:60}; s.path = [{...s.drone}]; s.mode = 'FLYING'; },
+  onReset(s){ s.batt = 20; s.alt = 5; s.drone = {x:480,y:60}; s.path = [{...s.drone}]; s.mode = 'FLYING'; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'detect') {
+      ui.activeLine(1);
+      if (s.batt <= 20 && s.mode === 'FLYING') { s.mode = 'CLIMB'; ui.setVar('mode', 'CLIMB', { flash:true }); ui.narrate('🚨 RTH triggered!'); }
+    } else if (phase === 'climb') {
+      ui.activeLine(2);
+      if (s.mode === 'CLIMB') {
+        s.alt += 3; if (s.alt >= s.rthAlt) { s.alt = s.rthAlt; s.mode = 'STRAIGHT'; ui.setVar('mode', 'STRAIGHT', { flash:true }); }
+        s.drone.y -= 4; s.path.push({...s.drone}); if (s.path.length>200) s.path.shift();
+        ui.setVar('alt', s.alt, { display: s.alt+'m' });
+      }
+    } else if (phase === 'straight') {
+      ui.activeLine(3);
+      if (s.mode === 'STRAIGHT') {
+        const dx = s.home.x - s.drone.x, dy = s.home.y - s.drone.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 20) { s.mode = 'LAND'; ui.setVar('mode', 'LAND', { flash:true }); }
+        else { s.drone.x += dx/d * 6; s.drone.y += dy/d * 2; s.path.push({...s.drone}); if (s.path.length>200) s.path.shift(); }
+      }
+    } else if (phase === 'land') {
+      ui.activeLine(4);
+      if (s.mode === 'LAND') {
+        s.drone.y = Math.min(s.home.y, s.drone.y + 3);
+        s.alt = Math.max(0, s.alt - 3);
+        s.path.push({...s.drone}); if (s.path.length>200) s.path.shift();
+        ui.setVar('alt', s.alt, { display: s.alt+'m' });
+        if (s.alt === 0) ui.narrate('✅ landed at home');
+      }
+    }
+  }
+});
+</script>
+</body></html>

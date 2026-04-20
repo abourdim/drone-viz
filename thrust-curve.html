@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thrust Curve Lab</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function thrust(pwm, voltage){ return Math.pow(pwm/100, 1.6) * 900 * (voltage/16.8); }
+function stage(s){
+  const W=460, H=160;
+  let path = 'M 10 ' + (10+H);
+  for (let p=0; p<=100; p+=2){
+    const t = thrust(p, s.voltage);
+    path += ` L ${10 + (p/100)*W} ${10+H - (t/1200)*H}`;
+  }
+  const hoverPWM = (() => {
+    for (let p=10; p<=100; p+=1) if (thrust(p, s.voltage)*4 >= s.weight) return p;
+    return 100;
+  })();
+  return `<svg viewBox="0 0 540 260">
+    <rect x="10" y="10" width="${W+20}" height="${H+20}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    <path d="${path}" fill="none" stroke="#FFD700" stroke-width="3"/>
+    <line x1="${10 + (hoverPWM/100)*W}" y1="10" x2="${10 + (hoverPWM/100)*W}" y2="${10+H}" stroke="#FF6B35" stroke-width="2" stroke-dasharray="4 4"/>
+    <text x="${10 + (hoverPWM/100)*W + 6}" y="30" font-size="12" font-weight="bold" fill="#FF6B35">hover @ ${hoverPWM}%</text>
+    <text x="20" y="${10+H-4}" font-size="10" fill="#666">0%</text>
+    <text x="${W+10}" y="${10+H-4}" font-size="10" fill="#666">100% PWM</text>
+    <text x="20" y="210" font-size="13" font-weight="bold" fill="#264653">4-motor build · weight ${s.weight}g · battery ${s.voltage.toFixed(1)}V</text>
+    <text x="20" y="232" font-size="12" fill="${hoverPWM>70?'#E63946':'#40BF4A'}">${hoverPWM>70 ? '⚠️ hover >70% — underpowered!' : '✅ plenty of headroom'}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '💪 Thrust Curve Lab',
+  subtitle: 'Will it lift? Check before you buy!',
+  vars: {
+    thrust:   { label:'⬆️ thrust ea.', value: 0, color:'#FFD700', note:'g per motor' },
+    total:    { label:'🏋️ total',     value: 0, color:'#40BF4A', note:'g all 4' },
+    hover:    { label:'📍 hover PWM', value: 0, color:'#FF6B35', note:'%' }
+  },
+  extras: [
+    { kind:'slider', id:'pS', label:'PWM %',    min:0,    max:100,  value:50, step:5,  onInput(v,s){ s.pwm = v; }},
+    { kind:'slider', id:'vS', label:'Battery V',min:120,  max:168,  value:155, step:1, onInput(v,s){ s.voltage = v/10; }},
+    { kind:'slider', id:'wS', label:'Weight g', min:200,  max:2000, value:500, step:50, onInput(v,s){ s.weight = v; }}
+  ],
+  lines: [
+    'READ PWM, voltage, weight',
+    'COMPUTE thrust per motor (non-linear curve)',
+    'total = thrust × 4',
+    'hover PWM = where total = weight'
+  ],
+  phases: ['read','curve','total','hover'],
+  onInit(s){ s.pwm = 50; s.voltage = 15.5; s.weight = 500; s.thrust = 0; s.total = 0; },
+  onReset(s){ s.pwm = 50; s.voltage = 15.5; s.weight = 500; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') { ui.activeLine(1); }
+    else if (phase === 'curve') { ui.activeLine(2); s.thrust = thrust(s.pwm, s.voltage); ui.setVar('thrust', s.thrust, { display: Math.round(s.thrust)+'g', flash:true }); }
+    else if (phase === 'total') { ui.activeLine(3); s.total = s.thrust * 4; ui.setVar('total', s.total, { display: Math.round(s.total)+'g' }); }
+    else if (phase === 'hover') {
+      ui.activeLine(4);
+      let h = 100; for (let p=10; p<=100; p+=1) if (thrust(p, s.voltage)*4 >= s.weight) { h = p; break; }
+      ui.setVar('hover', h, { display: h+'%', flash:true });
+      ui.narrate(h > 70 ? '⚠️ too heavy — gets sluggish' : '✅ good hover margin');
+    }
+  }
+});
+</script>
+</body></html>

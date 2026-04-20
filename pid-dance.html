@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PID Dance-Off</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+const PRESETS = [
+  { name:'sluggish',   P:0.05, I:0.01, D:0.0,  color:'#457B9D' },
+  { name:'perfect',    P:0.20, I:0.05, D:0.02, color:'#40BF4A' },
+  { name:'oscillating',P:0.55, I:0.02, D:0.0,  color:'#E63946' }
+];
+function stage(s){
+  const W=500, H=160;
+  const n = s.hist.length || 2;
+  const draw = (arr, color) => arr.map((v,i)=>`${(i/(n-1))*W},${H/2 - v*1.2}`).join(' ');
+  return `<svg viewBox="0 0 540 240">
+    <rect x="10" y="10" width="${W+20}" height="${H+20}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    <line x1="10" y1="${10+H/2}" x2="${W+30}" y2="${10+H/2}" stroke="#FFD700" stroke-dasharray="4 4"/>
+    <line x1="10" y1="${10+H/2 - s.setpoint*1.2}" x2="${W+30}" y2="${10+H/2 - s.setpoint*1.2}" stroke="#FF6B35" stroke-dasharray="6 3" stroke-width="2"/>
+    ${PRESETS.map((p,i)=>`<polyline points="${draw(s.hist.map(h=>h[i]), p.color)}" fill="none" stroke="${p.color}" stroke-width="3" transform="translate(10,10)"/>`).join('')}
+    <g transform="translate(20,200)">
+      ${PRESETS.map((p,i)=>`<g transform="translate(${i*170},0)"><rect width="14" height="14" fill="${p.color}"/><text x="20" y="12" font-size="12" font-weight="bold" fill="#264653">${p.name}</text></g>`).join('')}
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '💃 PID Dance-Off',
+  subtitle: 'Three tunes, same setpoint — who wins?',
+  vars: {
+    setpoint: { label:'🎯 setpoint', value: 40, color:'#FF6B35' }
+  },
+  extras: [
+    { kind:'slider', id:'sp', label:'Setpoint flick', min:-80, max:80, value:40, step:10, onInput(v,s){ s.setpoint = v; s.lastFlipTick = 0; }}
+  ],
+  lines: [
+    'FLICK setpoint',
+    'Each preset computes P + I + D',
+    'Each simulator integrates output → position',
+    'Plot all 3 traces'
+  ],
+  phases: ['flick','pid','sim','plot'],
+  onInit(s){
+    s.setpoint = 40; s.hist = [];
+    s.sims = PRESETS.map(() => ({ pos:0, vel:0, integ:0, lastErr:0 }));
+    s.lastFlipTick = 0; s.tickCount = 0;
+  },
+  onReset(s){
+    s.setpoint = 40; s.hist = [];
+    s.sims = PRESETS.map(() => ({ pos:0, vel:0, integ:0, lastErr:0 }));
+    s.tickCount = 0;
+  },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'flick')     { ui.activeLine(1); ui.narrate(`🎯 setpoint = ${s.setpoint}`); }
+    else if (phase === 'pid')   { ui.activeLine(2); ui.narrate('⚙️ each preset computes PID'); }
+    else if (phase === 'sim')   {
+      ui.activeLine(3);
+      PRESETS.forEach((p, i) => {
+        const sim = s.sims[i];
+        const err = s.setpoint - sim.pos;
+        sim.integ = Math.max(-100, Math.min(100, sim.integ + err * p.I));
+        const d = (err - sim.lastErr) * p.D * 10;
+        sim.lastErr = err;
+        const u = err * p.P + sim.integ + d;
+        sim.vel = sim.vel * 0.85 + u;
+        sim.pos += sim.vel * 0.3;
+      });
+      ui.narrate('🔁 simulating...');
+    }
+    else if (phase === 'plot') {
+      ui.activeLine(4);
+      s.hist.push(s.sims.map(x => x.pos));
+      if (s.hist.length > 80) s.hist.shift();
+    }
+  }
+});
+</script>
+</body></html>

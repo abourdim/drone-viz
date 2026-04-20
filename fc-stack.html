@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flight Control Stack</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+const STAGES = [
+  { id:'rc',     label:'RC input',   color:'#457B9D' },
+  { id:'expo',   label:'Expo curve', color:'#9B5DE5' },
+  { id:'setpt',  label:'Setpoint',   color:'#FFD700' },
+  { id:'pid',    label:'PID',        color:'#FF6B35' },
+  { id:'mix',    label:'Mixer',      color:'#E63946' },
+  { id:'esc',    label:'ESC → motor',color:'#40BF4A' }
+];
+function stage(s){
+  const H = 240;
+  const colW = 540 / STAGES.length;
+  const vals = STAGES.map(st => s.vals[st.id]);
+  return `<svg viewBox="0 0 540 260">
+    ${STAGES.map((st,i) => {
+      const x = i*colW, v = vals[i];
+      const barH = Math.max(4, Math.min(H-40, Math.abs(v)*1.2));
+      const y = H/2 - (v > 0 ? barH : 0);
+      const active = s.active === i;
+      return `<g>
+        <rect x="${x+4}" y="10" width="${colW-8}" height="${H}" rx="8" fill="#0A0F1E" stroke="${active?'#FF6B35':'#1E2A4A'}" stroke-width="${active?4:2}"/>
+        <text x="${x+colW/2}" y="30" text-anchor="middle" font-size="11" font-weight="bold" fill="${st.color}">${st.label}</text>
+        <line x1="${x+20}" y1="${10+H/2}" x2="${x+colW-20}" y2="${10+H/2}" stroke="#333" stroke-dasharray="3 3"/>
+        <rect x="${x+colW/2 - 12}" y="${10+y}" width="24" height="${barH}" fill="${st.color}" rx="3"/>
+        <text x="${x+colW/2}" y="${H+4}" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">${typeof v === 'number' ? v.toFixed(0) : v}</text>
+        ${i < STAGES.length-1 ? `<text x="${x+colW-6}" y="${10+H/2+4}" text-anchor="middle" font-size="14" fill="#FF6B35">▶</text>` : ''}
+      </g>`;
+    }).join('')}
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🧬 Flight Control Stack',
+  subtitle: 'Stick flick → 6 stages → motor spin. Watch it propagate!',
+  vars: {
+    stick:  { label:'🎮 stick', value: 0, color:'#457B9D', note:'raw input' },
+    motor:  { label:'⚙️ motor', value: 50, color:'#40BF4A', note:'final cmd' }
+  },
+  extras: [
+    { kind:'slider', id:'stS', label:'🎮 Stick', min:-100, max:100, value:0, step:5, onInput(v,s){ s.stick = v; }},
+    { kind:'slider', id:'eX', label:'Expo',    min:0, max:80, value:30, step:5, onInput(v,s){ s.expo = v/100; }}
+  ],
+  lines: [
+    'READ raw stick (−100..100)',
+    'APPLY expo curve (softens center)',
+    'COMPUTE setpoint (desired rate)',
+    'RUN PID → correction',
+    'MIX for each motor',
+    'SEND PWM → ESC → motor spins'
+  ],
+  phases: ['rc','expo','setpt','pid','mix','esc'],
+  onInit(s){ s.stick = 0; s.expo = 0.3; s.vals = {rc:0,expo:0,setpt:0,pid:0,mix:0,esc:50}; s.active = 0; },
+  onReset(s){ s.stick = 0; s.vals = {rc:0,expo:0,setpt:0,pid:0,mix:0,esc:50}; s.active = 0; },
+  stage,
+  run(phase, s, ui){
+    const idx = STAGES.findIndex(x => x.id === phase);
+    ui.activeLine(idx+1);
+    s.active = idx;
+    if (phase === 'rc')     { s.vals.rc = s.stick; ui.narrate(`🎮 raw = ${s.stick}`); }
+    else if (phase === 'expo') { const v = s.stick; const e = s.expo; s.vals.expo = ((1-e)*v + e*Math.pow(v/100,3)*100); ui.narrate(`🎚️ expo(${s.expo.toFixed(2)}) → ${s.vals.expo.toFixed(1)}`); }
+    else if (phase === 'setpt'){ s.vals.setpt = s.vals.expo * 5; ui.narrate(`🎯 setpoint = ${s.vals.setpt.toFixed(0)} deg/s`); }
+    else if (phase === 'pid') { s.vals.pid = s.vals.setpt * 0.2; ui.narrate(`🎛️ PID out = ${s.vals.pid.toFixed(1)}`); }
+    else if (phase === 'mix') { s.vals.mix = s.vals.pid; ui.narrate(`🧮 mixed to motor`); }
+    else if (phase === 'esc') { s.vals.esc = Math.max(0, Math.min(100, 50 + s.vals.mix)); ui.setVar('motor', s.vals.esc, { display: Math.round(s.vals.esc)+'%', note:'PWM', flash:true }); ui.narrate(`⚙️ ESC PWM = ${s.vals.esc.toFixed(0)}%`); }
+    ui.setVar('stick', s.stick, {});
+  }
+});
+</script>
+</body></html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gimbal Stabilizer</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const droneRoll = s.shake;
+  const gimbalComp = s.active ? -droneRoll * (1 - s.vibration*0.01) : 0;
+  return `<svg viewBox="0 0 540 260">
+    <rect width="540" height="260" fill="#B0E0E6"/>
+    <g transform="translate(270,100) rotate(${droneRoll})">
+      <rect x="-80" y="-10" width="160" height="20" fill="#264653" rx="4"/>
+      <circle cx="-80" cy="0" r="10" fill="#FFD700"/>
+      <circle cx="80" cy="0" r="10" fill="#FFD700"/>
+    </g>
+    <line x1="270" y1="120" x2="270" y2="160" stroke="#264653" stroke-width="3"/>
+    <g transform="translate(270,180) rotate(${droneRoll + gimbalComp})">
+      <rect x="-45" y="-25" width="90" height="50" rx="8" fill="#1D3557" stroke="#264653" stroke-width="2"/>
+      <circle cx="0" cy="0" r="18" fill="#2A2A3A" stroke="#FFD700" stroke-width="3"/>
+      <circle cx="0" cy="0" r="8" fill="#FFD700"/>
+    </g>
+    <g transform="translate(20,30)">
+      <text font-size="12" font-weight="bold" fill="#264653">drone roll: ${droneRoll.toFixed(1)}°</text>
+      <text y="18" font-size="12" font-weight="bold" fill="${s.active?'#40BF4A':'#E63946'}">gimbal ${s.active?'active':'OFF'}</text>
+      <text y="36" font-size="12" font-weight="bold" fill="#FF6B35">residual: ${(droneRoll + gimbalComp).toFixed(1)}°</text>
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '📸 Gimbal Stabilizer',
+  subtitle: 'Gimbal cancels drone motion — vibration fights back!',
+  vars: {
+    droneRoll:    { label:'🚁 drone°', value: 0, color:'#E63946' },
+    residual:     { label:'🎥 residual°', value: 0, color:'#FF6B35' }
+  },
+  extras: [
+    { kind:'slider', id:'sh', label:'Drone shake', min:-30, max:30, value:15, step:5, onInput(v,s){ s.shake = v; }},
+    { kind:'slider', id:'vi', label:'Vibration noise %', min:0, max:100, value:20, step:5, onInput(v,s){ s.vibration = v; }},
+    { kind:'toggle', id:'gT', label:'🎛️ Gimbal active', value:true, onToggle(v,s){ s.active = v; }}
+  ],
+  lines: [
+    'READ IMU: drone roll angle',
+    'SUBTRACT from target to get error',
+    'Motor compensates (imperfect due to vibration)',
+    'Camera output = drone + gimbal correction'
+  ],
+  phases: ['imu','error','motor','out'],
+  onInit(s){ s.shake = 15; s.vibration = 20; s.active = true; s.droneRoll = 15; s.residual = 0; },
+  onReset(s){ s.shake = 15; s.vibration = 20; s.active = true; s.droneRoll = 15; s.residual = 0; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'imu') { ui.activeLine(1); s.droneRoll = s.shake; ui.setVar('droneRoll', s.droneRoll, { display: s.droneRoll+'°' }); }
+    else if (phase === 'error') ui.activeLine(2);
+    else if (phase === 'motor') ui.activeLine(3);
+    else if (phase === 'out') {
+      ui.activeLine(4);
+      const comp = s.active ? -s.droneRoll * (1 - s.vibration*0.01) : 0;
+      s.residual = s.droneRoll + comp;
+      ui.setVar('residual', s.residual, { display: s.residual.toFixed(1)+'°', flash:true });
+    }
+  }
+});
+</script>
+</body></html>

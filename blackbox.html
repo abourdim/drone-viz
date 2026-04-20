@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Black Box Replay</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+// Pre-computed flight log: setpoint vs actual, with an obvious oscillation event
+const LOG = Array.from({length:200}, (_,i) => {
+  let sp = Math.round(Math.sin(i*0.08) * 80);
+  // oscillation event around t=100..140
+  let actual = sp;
+  if (i > 90 && i < 150) actual = sp + Math.sin(i*0.7) * (25 - Math.abs(i-120)*0.5);
+  else actual = sp + (Math.random()-0.5)*4;
+  return { sp, actual, ann: (i===120?'oscillation: P too high':null) };
+});
+function stage(s){
+  const W=500, H=160;
+  const n = LOG.length;
+  const spP = LOG.map((p,i)=>`${(i/(n-1))*W},${H/2 - p.sp*0.7}`).join(' ');
+  const acP = LOG.map((p,i)=>`${(i/(n-1))*W},${H/2 - p.actual*0.7}`).join(' ');
+  const cx = (s.cursor/(n-1))*W;
+  return `<svg viewBox="0 0 540 240">
+    <rect x="10" y="10" width="${W+20}" height="${H+20}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    <polyline points="${spP}" fill="none" stroke="#40BF4A" stroke-width="2" transform="translate(10,10)"/>
+    <polyline points="${acP}" fill="none" stroke="#E63946" stroke-width="2" transform="translate(10,10)"/>
+    <line x1="${10+cx}" y1="10" x2="${10+cx}" y2="${10+H}" stroke="#FFD700" stroke-width="2"/>
+    <text x="20" y="28" font-size="10" fill="#40BF4A" font-weight="bold">setpoint</text>
+    <text x="80" y="28" font-size="10" fill="#E63946" font-weight="bold">actual</text>
+    ${LOG[s.cursor]?.ann ? `<text x="${10+cx}" y="${10+H+16}" text-anchor="middle" font-size="11" font-weight="bold" fill="#FF6B35">⚠️ ${LOG[s.cursor].ann}</text>` : ''}
+    <g transform="translate(20,205)">
+      <text font-size="13" font-weight="bold" fill="#264653">t=${s.cursor}  sp=${LOG[s.cursor]?.sp}  actual=${LOG[s.cursor]?.actual}</text>
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '📼 Black Box Replay',
+  subtitle: 'Scrub the flight log — find the oscillation!',
+  vars: {
+    cursor: { label:'⏱️ cursor', value: 0, color:'#FFD700' },
+    err:    { label:'📏 error',  value: 0, color:'#E63946' }
+  },
+  extras: [
+    { kind:'slider', id:'cS', label:'Scrub', min:0, max:199, value:0, step:1, onInput(v,s){ s.cursor = v; }}
+  ],
+  lines: [
+    'READ log at cursor',
+    'COMPUTE error = setpoint − actual',
+    'DETECT oscillation (abs error > 15)',
+    'ANNOTATE cause (if any)'
+  ],
+  phases: ['read','err','detect','ann'],
+  onInit(s){ s.cursor = 0; s.err = 0; },
+  onReset(s){ s.cursor = 0; s.err = 0; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') { ui.activeLine(1); s.cursor = (s.cursor + 1) % LOG.length; ui.setVar('cursor', s.cursor, {}); }
+    else if (phase === 'err') { ui.activeLine(2); const p = LOG[s.cursor]; const e = p.actual - p.sp; ui.setVar('err', e, { display: e.toFixed(1), flash:true }); }
+    else if (phase === 'detect') { ui.activeLine(3); const e = Math.abs(s.err); if (e > 15) ui.check(3, true); }
+    else if (phase === 'ann') { ui.activeLine(4); if (LOG[s.cursor]?.ann) ui.narrate('⚠️ ' + LOG[s.cursor].ann); }
+  }
+});
+</script>
+</body></html>

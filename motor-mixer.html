@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motor Mixer Decomposer</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+// Quad-X motor positions (top view): 1 front-right, 2 rear-right, 3 rear-left, 4 front-left
+// Mix for quad-X: m1 = T + P − R − Y ; m2 = T − P − R + Y ; m3 = T − P + R − Y ; m4 = T + P + R + Y
+function stage(s){
+  const clamp = v => Math.max(0, Math.min(100, v));
+  const thrust = i => clamp(s.motors[i]);
+  // Spin rate visual — rotate arrows
+  const rot = [(Date.now()/4) % 360, -(Date.now()/4) % 360, (Date.now()/4) % 360, -(Date.now()/4) % 360];
+  const positions = [
+    { x: 350, y:  80, name:'M1', label:'FR', dir:'CCW' },
+    { x: 350, y: 200, name:'M2', label:'RR', dir:'CW'  },
+    { x: 150, y: 200, name:'M3', label:'RL', dir:'CCW' },
+    { x: 150, y:  80, name:'M4', label:'FL', dir:'CW'  }
+  ];
+  const frame = `
+    <line x1="150" y1="80" x2="350" y2="200" stroke="#264653" stroke-width="6"/>
+    <line x1="350" y1="80" x2="150" y2="200" stroke="#264653" stroke-width="6"/>
+    <rect x="220" y="110" width="60" height="60" rx="8" fill="#1A1B2E" stroke="#FFD700" stroke-width="3"/>
+    <text x="250" y="145" text-anchor="middle" font-size="10" font-weight="bold" fill="#FFD700">FC</text>`;
+  const motors = positions.map((p,i) => {
+    const t = thrust(i), glow = (t/100)*20;
+    return `<g transform="translate(${p.x},${p.y})">
+      <circle r="${glow+25}" fill="#FFD700" opacity="${t/500}"/>
+      <circle r="22" fill="${p.dir==='CCW'?'#E63946':'#457B9D'}" stroke="#264653" stroke-width="3"/>
+      <g transform="rotate(${rot[i]*(t/100)})">
+        <rect x="-28" y="-2" width="56" height="4" fill="#FFD700"/>
+        <rect x="-2" y="-28" width="4" height="56" fill="#FFD700"/>
+      </g>
+      <text y="4" text-anchor="middle" font-size="12" font-weight="bold" fill="#FFF">${p.name}</text>
+      <text y="42" text-anchor="middle" font-size="11" font-weight="bold" fill="#264653">${p.label} · ${Math.round(t)}%</text>
+    </g>`;
+  }).join('');
+  // Stick visual
+  const stickX = 460 + (s.R/100)*30;
+  const stickY = 150 - (s.P/100)*30;
+  const stick = `
+    <g transform="translate(460,150)">
+      <circle r="40" fill="#DDD" stroke="#264653" stroke-width="2"/>
+      <text y="-48" text-anchor="middle" font-size="11" font-weight="bold" fill="#264653">stick</text>
+    </g>
+    <circle cx="${stickX}" cy="${stickY}" r="10" fill="#E63946" stroke="#FFF" stroke-width="2"/>`;
+  return `<svg viewBox="0 0 540 280">${frame}${motors}${stick}
+    <text x="250" y="30" text-anchor="middle" font-size="13" font-weight="bold" fill="#264653">T=${s.T}  P=${s.P>=0?'+':''}${s.P}  R=${s.R>=0?'+':''}${s.R}  Y=${s.Y>=0?'+':''}${s.Y}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🚁 Motor Mixer',
+  subtitle: 'See how 4 sticks become 4 motor speeds!',
+  vars: {
+    T: { label:'⬆️ throttle', value: 50, color:'#264653', note:'base' },
+    P: { label:'↕️ pitch',    value: 0,  color:'#E63946', note:'nose' },
+    R: { label:'↔️ roll',     value: 0,  color:'#457B9D', note:'bank' },
+    Y: { label:'🔄 yaw',      value: 0,  color:'#2A9D8F', note:'spin' }
+  },
+  extras: [
+    { kind:'slider', id:'tS', label:'Throttle', min:0,    max:100, value:50, step:5, onInput(v,s){ s.T = v; }},
+    { kind:'slider', id:'pS', label:'Pitch',    min:-30,  max:30,  value:0,  step:5, onInput(v,s){ s.P = v; }},
+    { kind:'slider', id:'rS', label:'Roll',     min:-30,  max:30,  value:0,  step:5, onInput(v,s){ s.R = v; }},
+    { kind:'slider', id:'yS', label:'Yaw',      min:-30,  max:30,  value:0,  step:5, onInput(v,s){ s.Y = v; }}
+  ],
+  lines: [
+    'READ sticks: <span class="chip">T P R Y</span>',
+    'M1 (FR) = T + P − R − Y',
+    'M2 (RR) = T − P − R + Y',
+    'M3 (RL) = T − P + R − Y',
+    'M4 (FL) = T + P + R + Y',
+    'CLAMP each to 0..100%'
+  ],
+  phases: ['read','m1','m2','m3','m4','clamp'],
+  onInit(s){ s.motors = [50,50,50,50]; },
+  onReset(s){ s.T=50; s.P=0; s.R=0; s.Y=0; s.motors = [50,50,50,50]; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') { ui.activeLine(1); ui.narrate('🎮 reading sticks...'); }
+    else if (phase === 'm1') { ui.activeLine(2); s.motors[0] = s.T + s.P - s.R - s.Y; ui.narrate(`M1 = ${s.T} + ${s.P} − ${s.R} − ${s.Y} = ${s.motors[0]}`); }
+    else if (phase === 'm2') { ui.activeLine(3); s.motors[1] = s.T - s.P - s.R + s.Y; ui.narrate(`M2 = ${s.motors[1]}`); }
+    else if (phase === 'm3') { ui.activeLine(4); s.motors[2] = s.T - s.P + s.R - s.Y; ui.narrate(`M3 = ${s.motors[2]}`); }
+    else if (phase === 'm4') { ui.activeLine(5); s.motors[3] = s.T + s.P + s.R + s.Y; ui.narrate(`M4 = ${s.motors[3]}`); }
+    else if (phase === 'clamp') { ui.activeLine(6); s.motors = s.motors.map(v => Math.max(0, Math.min(100, v))); ui.narrate(`🛡️ clamped to 0..100%`); }
+  }
+});
+</script>
+</body></html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESC Protocol Showdown</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+const PROTOS = [
+  { name:'PWM 50Hz',    period: 20000,  resolution:250, pulse: pwm => 1000+pwm*10, color:'#457B9D' },
+  { name:'OneShot125',  period: 125,    resolution:2000, pulse: pwm => 125+pwm*1.25, color:'#9B5DE5' },
+  { name:'Multishot',   period: 5,      resolution:2000, pulse: pwm => 5+pwm*0.25, color:'#FFD700' },
+  { name:'DShot600',    period: 27,     resolution:2048, pulse: pwm => 16, color:'#40BF4A', digital:true }
+];
+function stage(s){
+  const W=500, H = 170, hi=30, lo=140;
+  return `<svg viewBox="0 0 540 220">
+    <rect x="10" y="10" width="${W+20}" height="${H}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    ${PROTOS.map((p, i) => {
+      const yBase = 30 + i*35;
+      const pulse = p.pulse(s.pwm);
+      const period = p.period;
+      const frac = Math.min(1, pulse/period);
+      let path;
+      if (p.digital) {
+        // show packet of 16 bits
+        let d = `M 20 ${yBase+20}`;
+        for (let b=0; b<16; b++) {
+          const bit = ((s.pwm * 2.048) | 0) & (1 << (15-b)) ? 1 : 0;
+          const x0 = 20 + b*(W/18), x1 = 20 + (b+1)*(W/18);
+          d += ` L ${x0} ${yBase + (bit?0:20)} L ${x1} ${yBase + (bit?0:20)}`;
+        }
+        path = d;
+      } else {
+        path = `M 20 ${yBase+20} L ${20 + frac*W*0.3} ${yBase+20} L ${20 + frac*W*0.3} ${yBase} L ${20 + frac*W*0.3 + 4} ${yBase} L ${20 + frac*W*0.3 + 4} ${yBase+20} L ${20 + W - 20} ${yBase+20}`;
+      }
+      return `<g>
+        <text x="20" y="${yBase-2}" font-size="10" fill="${p.color}" font-weight="bold">${p.name} · ${p.resolution} steps</text>
+        <path d="${path}" fill="none" stroke="${p.color}" stroke-width="2"/>
+      </g>`;
+    }).join('')}
+    <text x="20" y="210" font-size="11" fill="#264653">throttle = ${s.pwm}% · DShot sends a 16-bit digital packet · others pulse-width analog</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '📡 ESC Protocols Compared',
+  subtitle: 'Same throttle, four ways to tell the motor!',
+  vars: {
+    pwm: { label:'⚡ throttle', value: 50, color:'#FF6B35', note:'%' }
+  },
+  extras: [
+    { kind:'slider', id:'pS', label:'Throttle %', min:0, max:100, value:50, step:1, onInput(v,s){ s.pwm = v; }}
+  ],
+  lines: [
+    'PWM 50Hz: pulse 1–2 ms, 250 steps, slow',
+    'OneShot125: 10× faster PWM',
+    'Multishot: 100× faster PWM',
+    'DShot600: digital — 16-bit bits + CRC'
+  ],
+  phases: ['pwm','oneshot','multi','dshot'],
+  onInit(s){ s.pwm = 50; },
+  stage,
+  run(phase, s, ui){
+    const n = ['pwm','oneshot','multi','dshot'].indexOf(phase)+1;
+    ui.activeLine(n);
+    ui.narrate([`PWM — analog, slow but universal`,`OneShot — faster analog`,`Multishot — ultra-fast analog`,`DShot — digital, noise-proof, bidir`][n-1]);
+  }
+});
+</script>
+</body></html>

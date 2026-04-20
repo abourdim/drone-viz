@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS Glitch + EKF</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  return `<svg viewBox="0 0 540 260">
+    <rect width="540" height="260" fill="#F4E8CB"/>
+    <!-- path -->
+    ${s.truePath.length > 1 ? `<polyline points="${s.truePath.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#40BF4A" stroke-width="3"/>` : ''}
+    ${s.gpsReads.length > 0 ? s.gpsReads.slice(-8).map(p => `<circle cx="${p.x}" cy="${p.y}" r="5" fill="${p.outlier?'#E63946':'#457B9D'}" opacity="0.7"/>`).join('') : ''}
+    ${s.estPath.length > 1 ? `<polyline points="${s.estPath.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="${s.useEkf?'#FFD700':'#E63946'}" stroke-width="3" stroke-dasharray="6 3"/>` : ''}
+    <g transform="translate(${s.truePos.x},${s.truePos.y})">
+      <circle r="12" fill="#40BF4A" stroke="#264653" stroke-width="3"/>
+      <text y="4" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">🚁</text>
+    </g>
+    <g transform="translate(20,20)">
+      <text font-size="10" fill="#40BF4A" font-weight="bold">● true path</text>
+      <text y="14" font-size="10" fill="#457B9D" font-weight="bold">● GPS reads</text>
+      <text y="28" font-size="10" fill="#E63946" font-weight="bold">● GPS outliers</text>
+      <text y="42" font-size="10" fill="${s.useEkf?'#FFD700':'#E63946'}" font-weight="bold">-- estimate (${s.useEkf?'EKF':'raw GPS'})</text>
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '📍 GPS Glitch & EKF',
+  subtitle: 'GPS lies sometimes — EKF rejects outliers!',
+  vars: {
+    outliers: { label:'🚨 outliers', value: 0, color:'#E63946' },
+    used:     { label:'✅ used',     value: 0, color:'#40BF4A' }
+  },
+  extras: [
+    { kind:'toggle', id:'eT', label:'🛡️ EKF', value:true, onToggle(v,s){ s.useEkf = v; }},
+    { kind:'slider', id:'nS', label:'GPS noise', min:0, max:50, value:10, step:1, onInput(v,s){ s.noise = v; }}
+  ],
+  lines: [
+    'READ GPS reading',
+    'PREDICT using last velocity',
+    'Outlier? (distance > 3σ) reject',
+    'UPDATE estimate with good reads'
+  ],
+  phases: ['read','predict','reject','update'],
+  onInit(s){
+    s.noise = 10; s.useEkf = true;
+    s.truePos = { x: 270, y: 130 }; s.vel = { x: 2, y: 0 };
+    s.truePath = [{...s.truePos}]; s.gpsReads = []; s.estPath = [{...s.truePos}];
+    s.est = { x: 270, y: 130 };
+    s.outliers = 0; s.used = 0;
+  },
+  onReset(s){
+    s.truePos = { x: 270, y: 130 }; s.vel = { x: 2, y: 0 };
+    s.truePath = [{...s.truePos}]; s.gpsReads = []; s.estPath = [{...s.truePos}];
+    s.est = { x: 270, y: 130 };
+    s.outliers = 0; s.used = 0;
+  },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') {
+      ui.activeLine(1);
+      // advance truth in a loop
+      s.truePos.x += s.vel.x; s.truePos.y += Math.sin(s.truePos.x/30)*2;
+      if (s.truePos.x > 510 || s.truePos.x < 30) s.vel.x *= -1;
+      s.truePath.push({...s.truePos});
+      if (s.truePath.length > 80) s.truePath.shift();
+      const outlier = Math.random() < 0.15;
+      const gx = s.truePos.x + (outlier ? (Math.random()-0.5)*80 : (Math.random()-0.5)*s.noise);
+      const gy = s.truePos.y + (outlier ? (Math.random()-0.5)*60 : (Math.random()-0.5)*s.noise);
+      s.lastRead = { x: gx, y: gy, outlier };
+      s.gpsReads.push(s.lastRead); if (s.gpsReads.length > 40) s.gpsReads.shift();
+    } else if (phase === 'predict') { ui.activeLine(2); s.pred = { x: s.est.x + s.vel.x, y: s.est.y + Math.sin(s.est.x/30)*2 }; }
+    else if (phase === 'reject') {
+      ui.activeLine(3);
+      const d = Math.hypot(s.lastRead.x - s.pred.x, s.lastRead.y - s.pred.y);
+      s.rejected = s.useEkf && d > 30;
+      if (s.rejected) { s.outliers++; ui.setVar('outliers', s.outliers, { flash:true }); ui.narrate('🚨 outlier rejected'); }
+    } else if (phase === 'update') {
+      ui.activeLine(4);
+      if (!s.rejected) {
+        if (s.useEkf) {
+          s.est.x = 0.7*s.pred.x + 0.3*s.lastRead.x;
+          s.est.y = 0.7*s.pred.y + 0.3*s.lastRead.y;
+        } else {
+          s.est = { x: s.lastRead.x, y: s.lastRead.y };
+        }
+        s.used++; ui.setVar('used', s.used, { flash:true });
+      }
+      s.estPath.push({...s.est}); if (s.estPath.length > 80) s.estPath.shift();
+    }
+  }
+});
+</script>
+</body></html>

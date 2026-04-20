@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optical Flow</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const features = s.textureRich ? 80 : 8;
+  const dots = [];
+  for (let i=0; i<features; i++){
+    const x = ((i * 37 + s.t*s.vel*2) % 500 + 500) % 500;
+    const y = (i * 53 % 120) + 40;
+    dots.push({x, y});
+  }
+  return `<svg viewBox="0 0 540 240">
+    <rect x="10" y="10" width="520" height="200" fill="#2A2A3A" rx="10"/>
+    ${dots.map(d => `<circle cx="${d.x+20}" cy="${d.y}" r="3" fill="#FFD700" opacity="0.85"/>`).join('')}
+    ${s.arrows ? dots.slice(0, 10).map(d => `<line x1="${d.x+20}" y1="${d.y}" x2="${d.x+20 - s.vel*8}" y2="${d.y}" stroke="#E63946" stroke-width="2" marker-end="url(#ar)"/>`).join('') : ''}
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#E63946"/></marker></defs>
+    <text x="270" y="230" text-anchor="middle" font-size="12" font-weight="bold" fill="#264653">${s.textureRich?'✅ rich texture — flow works':'⚠️ featureless floor — flow fails!'}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '📷 Optical Flow',
+  subtitle: 'Camera looks down, pixel motion → drone velocity',
+  vars: {
+    pixelShift: { label:'📐 px/frame', value: 0, color:'#E63946' },
+    droneV:     { label:'🏃 drone v', value: 0, color:'#40BF4A', note:'m/s' }
+  },
+  extras: [
+    { kind:'slider', id:'vS', label:'True velocity', min:0, max:10, value:3, step:1, onInput(v,s){ s.vel = v; }},
+    { kind:'toggle', id:'tT', label:'🎨 Rich texture', value:true, onToggle(v,s){ s.textureRich = v; }}
+  ],
+  lines: [
+    'CAPTURE two frames',
+    'FIND features in both',
+    'COMPUTE pixel shift between',
+    'shift × scale = drone velocity'
+  ],
+  phases: ['capture','features','shift','scale'],
+  onInit(s){ s.vel = 3; s.textureRich = true; s.arrows = false; s.t = 0; },
+  onReset(s){ s.vel = 3; s.textureRich = true; s.arrows = false; s.t = 0; },
+  stage,
+  run(phase, s, ui){
+    s.t += 1;
+    if (phase === 'capture') { ui.activeLine(1); s.arrows = false; }
+    else if (phase === 'features') { ui.activeLine(2); ui.narrate(s.textureRich?`${80} features found`:`only 8 features — risky!`); }
+    else if (phase === 'shift') {
+      ui.activeLine(3); s.arrows = true;
+      const shift = s.textureRich ? s.vel * 2 : s.vel * 2 + (Math.random()-0.5) * 8;
+      ui.setVar('pixelShift', shift, { display: shift.toFixed(1)+' px', flash:true });
+      s.lastShift = shift;
+    } else if (phase === 'scale') {
+      ui.activeLine(4);
+      const v = s.lastShift * 0.5;
+      ui.setVar('droneV', v, { display: v.toFixed(1)+' m/s' });
+    }
+  }
+});
+</script>
+</body></html>

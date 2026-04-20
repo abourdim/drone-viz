@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arming Checks</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+const CHECKS = [
+  { id:'throttleLow', label:'Throttle low',        get:s=>s.throttleLow },
+  { id:'throttleOK',  label:'Throttle arm zone',   get:s=>s.throttleLow },
+  { id:'gyroOK',      label:'Gyro calibrated',     get:s=>s.gyroCal },
+  { id:'levelOK',     label:'Drone level (±10°)',  get:s=>s.level },
+  { id:'gpsFix',      label:'GPS fix (≥8 sats)',   get:s=>s.gpsFix },
+  { id:'battOK',      label:'Battery ≥ 3.7V/cell', get:s=>s.battOK },
+  { id:'rcOK',        label:'RC link alive',       get:s=>s.rcOK },
+  { id:'noFailsafe',  label:'No failsafe active',  get:s=>s.noFS },
+  { id:'armSwitch',   label:'Arm switch OFF→ON',   get:s=>s.armSw },
+  { id:'homeSet',     label:'Home position saved', get:s=>s.homeSet }
+];
+function stage(s){
+  return `<svg viewBox="0 0 540 330">
+    <rect x="10" y="10" width="520" height="320" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="10"/>
+    ${CHECKS.map((c,i) => {
+      const ok = c.get(s);
+      const y = 30 + i*28;
+      const active = s.activeIdx === i;
+      return `<g>
+        <circle cx="30" cy="${y}" r="10" fill="${ok?'#40BF4A':'#666'}" stroke="${active?'#FF6B35':'#1E2A4A'}" stroke-width="${active?3:1}"/>
+        <text x="30" y="${y+4}" text-anchor="middle" font-size="11" font-weight="bold" fill="#FFF">${ok?'✓':'✗'}</text>
+        <text x="50" y="${y+4}" font-size="12" fill="${ok?'#40BF4A':'#E63946'}" font-weight="${active?'bold':'normal'}">${c.label}</text>
+      </g>`;
+    }).join('')}
+    <text x="270" y="315" text-anchor="middle" font-size="13" font-weight="bold" fill="${s.canArm?'#40BF4A':'#E63946'}">${s.canArm?'🟢 ARMING PERMITTED':'🔴 arming BLOCKED'}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '✅ Pre-Arm Checks',
+  subtitle: '10 green lights before the props spin!',
+  vars: {
+    passed: { label:'✓ passed', value: 0, color:'#40BF4A' },
+    canArm: { label:'🟢 OK?',    value: 'NO', color:'#E63946' }
+  },
+  extras: [
+    { kind:'toggle', id:'t1', label:'Throttle low',  value:false, onToggle(v,s){s.throttleLow=v;}},
+    { kind:'toggle', id:'t2', label:'Gyro cal',      value:false, onToggle(v,s){s.gyroCal=v;}},
+    { kind:'toggle', id:'t3', label:'Level',         value:false, onToggle(v,s){s.level=v;}},
+    { kind:'toggle', id:'t4', label:'GPS fix',       value:false, onToggle(v,s){s.gpsFix=v;}},
+    { kind:'toggle', id:'t5', label:'Battery OK',    value:false, onToggle(v,s){s.battOK=v;}},
+    { kind:'toggle', id:'t6', label:'RC OK',         value:false, onToggle(v,s){s.rcOK=v;}},
+    { kind:'toggle', id:'t7', label:'No failsafe',   value:false, onToggle(v,s){s.noFS=v;}},
+    { kind:'toggle', id:'t8', label:'Arm switch',    value:false, onToggle(v,s){s.armSw=v;}},
+    { kind:'toggle', id:'t9', label:'Home set',      value:false, onToggle(v,s){s.homeSet=v;}}
+  ],
+  lines: [
+    'LOOP through each pre-arm check',
+    'Each check reads a condition',
+    'ALL pass → arm allowed',
+    'ANY fail → block arming'
+  ],
+  phases: CHECKS.map((_,i)=>'c'+i).concat(['decide']),
+  onInit(s){
+    s.throttleLow=false; s.gyroCal=false; s.level=false; s.gpsFix=false; s.battOK=false;
+    s.rcOK=false; s.noFS=false; s.armSw=false; s.homeSet=false;
+    s.activeIdx = -1; s.canArm = false; s.passed = 0;
+  },
+  onReset(s){ Object.assign(s, { throttleLow:false, gyroCal:false, level:false, gpsFix:false, battOK:false, rcOK:false, noFS:false, armSw:false, homeSet:false, activeIdx:-1, canArm:false, passed:0 }); },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'decide') {
+      ui.activeLine(4);
+      s.activeIdx = -1;
+      const all = CHECKS.every(c => c.get(s));
+      s.canArm = all;
+      ui.setVar('canArm', all?'YES':'NO', { display: all?'YES':'NO', flash:true });
+    } else {
+      const idx = Number(phase.slice(1));
+      s.activeIdx = idx;
+      ui.activeLine(idx === 0 ? 1 : 2);
+      const ok = CHECKS[idx].get(s);
+      s.passed = CHECKS.slice(0, idx+1).filter(c => c.get(s)).length;
+      ui.setVar('passed', s.passed, { display: `${s.passed}/10` });
+      ui.narrate(`${ok?'✅':'❌'} ${CHECKS[idx].label}`);
+    }
+  }
+});
+</script>
+</body></html>

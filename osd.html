@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSD</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  return `<svg viewBox="0 0 540 260">
+    <rect x="10" y="10" width="520" height="240" fill="#1A1A2E" stroke="#264653" stroke-width="3" rx="6"/>
+    <text x="270" y="135" text-anchor="middle" font-size="42">🌄</text>
+    <!-- OSD overlay -->
+    <g font-family="monospace" font-weight="bold" fill="#FFF" stroke="#000" stroke-width="0.5">
+      <text x="25" y="40" font-size="18" fill="${s.batt<22?'#E63946':s.batt<24?'#FFD700':'#40BF4A'}">🔋 ${s.batt.toFixed(1)}V</text>
+      <text x="25" y="65" font-size="14">📡 ${s.rssi}%</text>
+      <text x="25" y="85" font-size="14">⏱️ ${Math.floor(s.time/60)}:${String(s.time%60).padStart(2,'0')}</text>
+      <text x="430" y="40" font-size="16" text-anchor="start">⬆️${s.alt}m</text>
+      <text x="430" y="65" font-size="16">🧭 ${s.heading}°</text>
+      <text x="430" y="85" font-size="16">🏎️ ${s.speed}km/h</text>
+      <!-- home arrow (pointing to home) -->
+      <g transform="translate(270,230) rotate(${s.homeDir})">
+        <path d="M 0 -14 L 8 8 L 0 3 L -8 8 Z" fill="#FFD700" stroke="#000" stroke-width="1"/>
+      </g>
+      <text x="270" y="250" text-anchor="middle" font-size="12" fill="#FFD700">← HOME ${s.homeDist}m</text>
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '📺 OSD (On-Screen Display)',
+  subtitle: 'Pilot\'s only dashboard — choose wisely!',
+  vars: {
+    batt: { label:'🔋 V', value: 16.8, color:'#40BF4A' },
+    time: { label:'⏱️ s', value: 0, color:'#264653' }
+  },
+  extras: [
+    { kind:'slider', id:'bS', label:'Battery V (×10)', min:140, max:170, value:168, step:1, onInput(v,s){ s.batt = v/10; }},
+    { kind:'slider', id:'rS', label:'RSSI %', min:0, max:100, value:95, step:5, onInput(v,s){ s.rssi = v; }},
+    { kind:'slider', id:'aS', label:'Altitude m', min:0, max:120, value:25, step:5, onInput(v,s){ s.alt = v; }},
+    { kind:'slider', id:'hS', label:'Heading °', min:0, max:359, value:45, step:15, onInput(v,s){ s.heading = v; }}
+  ],
+  lines: [
+    'Read telemetry (batt, RSSI, alt…)',
+    'Compute home direction + distance',
+    'Render overlay at corners',
+    'Update every video frame (30×/sec)'
+  ],
+  phases: ['read','home','render','tick'],
+  onInit(s){ s.batt = 16.8; s.rssi = 95; s.alt = 25; s.heading = 45; s.speed = 0; s.homeDir = 180; s.homeDist = 120; s.time = 0; },
+  onReset(s){ s.time = 0; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') ui.activeLine(1);
+    else if (phase === 'home') { ui.activeLine(2); s.homeDir = (s.heading + 180) % 360; s.homeDist = Math.round(Math.abs(s.heading-45)*2 + 50); }
+    else if (phase === 'render') ui.activeLine(3);
+    else if (phase === 'tick') { ui.activeLine(4); s.time++; s.speed = Math.round(50 + Math.sin(s.time*0.2)*30); ui.setVar('batt', s.batt, { display: s.batt.toFixed(1)+'V' }); ui.setVar('time', s.time, { display: s.time+'s' }); }
+  }
+});
+</script>
+</body></html>

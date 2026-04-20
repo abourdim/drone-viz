@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digital vs Analog FPV</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  // Two "screens": left=analog, right=digital
+  const noise = 1 - s.signal/100;
+  const analogStatic = Array.from({length:40},(_,i)=>`<rect x="${Math.random()*240 + 20}" y="${Math.random()*160 + 20}" width="2" height="1" fill="#FFF" opacity="${noise}"/>`).join('');
+  const digitalGlitch = s.signal < 40 ? Array.from({length:8},(_,i)=>`<rect x="${i*30 + 290}" y="${20 + Math.random()*160}" width="28" height="12" fill="${Math.random()>0.5?'#E63946':'#0F0'}"/>`).join('') : '';
+  const digitalOut = s.signal < 25;
+  return `<svg viewBox="0 0 540 220">
+    <!-- analog -->
+    <g>
+      <rect x="20" y="20" width="240" height="160" fill="#1A1A2E" stroke="#264653" stroke-width="3" rx="4"/>
+      <text x="140" y="14" text-anchor="middle" font-size="11" font-weight="bold" fill="#264653">ANALOG FPV</text>
+      ${s.signal > 5 ? `<text x="140" y="105" text-anchor="middle" font-size="22" font-weight="bold" fill="#FFF" opacity="${s.signal/100}">🌄 flying</text>` : `<text x="140" y="105" text-anchor="middle" font-size="14" fill="#FFF">❄️ snow only</text>`}
+      ${analogStatic}
+    </g>
+    <!-- digital -->
+    <g>
+      <rect x="280" y="20" width="240" height="160" fill="#1A1A2E" stroke="#264653" stroke-width="3" rx="4"/>
+      <text x="400" y="14" text-anchor="middle" font-size="11" font-weight="bold" fill="#264653">DIGITAL FPV</text>
+      ${!digitalOut ? `<text x="400" y="105" text-anchor="middle" font-size="22" font-weight="bold" fill="#FFF">🌄 flying</text>` : `<text x="400" y="105" text-anchor="middle" font-size="14" fill="#E63946">⚫ BLACK — cliff!</text>`}
+      ${digitalGlitch}
+    </g>
+    <text x="270" y="205" text-anchor="middle" font-size="12" fill="#264653">signal = ${s.signal}% · analog degrades gracefully · digital cliffs</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '📺 Digital vs Analog FPV',
+  subtitle: 'Same signal level, very different failure modes',
+  vars: {
+    signal: { label:'📶 signal', value: 80, color:'#40BF4A', note:'%' }
+  },
+  extras: [
+    { kind:'slider', id:'sS', label:'Signal strength %', min:0, max:100, value:80, step:5, onInput(v,s){ s.signal = v; }}
+  ],
+  lines: [
+    'ANALOG: snow increases with distance',
+    'DIGITAL: clean until threshold',
+    'Below threshold → digital glitches/blacks',
+    'Analog: always a hint of image'
+  ],
+  phases: ['analog','digital','threshold','show'],
+  onInit(s){ s.signal = 80; },
+  stage,
+  run(phase, s, ui){
+    const n = ['analog','digital','threshold','show'].indexOf(phase)+1;
+    ui.activeLine(n);
+    if (n === 4) ui.narrate(s.signal < 25 ? 'digital blackout!' : s.signal < 40 ? 'digital glitching' : 'both OK');
+  }
+});
+</script>
+</body></html>

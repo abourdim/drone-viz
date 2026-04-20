@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wind vs GPS Hold</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const tilt = s.gpsHold ? Math.max(-25, Math.min(25, s.wind * 0.8)) : 0;
+  return `<svg viewBox="0 0 540 260">
+    <rect width="540" height="260" fill="#B0E0E6"/>
+    <circle cx="${s.homeX}" cy="180" r="10" fill="#E63946"/>
+    <text x="${s.homeX}" y="210" text-anchor="middle" font-size="11" font-weight="bold" fill="#E63946">home</text>
+    <g transform="translate(${s.droneX},120) rotate(${tilt})">
+      <rect x="-50" y="-5" width="100" height="10" fill="#264653" rx="3"/>
+      <circle cx="-50" cy="0" r="8" fill="#FFD700"/>
+      <circle cx="50" cy="0" r="8" fill="#FFD700"/>
+    </g>
+    <!-- wind arrow -->
+    <g transform="translate(${50},80)">
+      <text font-size="11" font-weight="bold" fill="#264653">wind</text>
+      ${Array.from({length:Math.abs(Math.round(s.wind/5))||1}, (_,i) => `<path d="M ${i*15} 12 L ${i*15+12} 18 L ${i*15} 24 Z" fill="${s.wind>=0?'#457B9D':'#E63946'}"/>`).join('')}
+    </g>
+    <text x="270" y="240" text-anchor="middle" font-size="12" font-weight="bold" fill="#264653">GPS-hold: ${s.gpsHold?'ON (tilt into wind)':'OFF (drifting!)'}</text>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🌬️ Wind vs GPS Hold',
+  subtitle: 'Without GPS → drift. With GPS → tilts into wind!',
+  vars: {
+    wind:   { label:'🌬️ wind', value: 8, color:'#457B9D', note:'m/s' },
+    drift:  { label:'📏 drift', value: 0, color:'#E63946', note:'m from home' }
+  },
+  extras: [
+    { kind:'slider', id:'wS', label:'Wind', min:-15, max:15, value:8, step:1, onInput(v,s){ s.wind = v; }},
+    { kind:'toggle', id:'gT', label:'📍 GPS hold', value:false, onToggle(v,s){ s.gpsHold = v; }}
+  ],
+  lines: [
+    'SENSE wind pushing drone',
+    'WITHOUT hold: drone drifts',
+    'WITH hold: GPS sees drift → tilt into wind',
+    'wind force = tilt thrust → position stays'
+  ],
+  phases: ['sense','nohold','hold','result'],
+  onInit(s){ s.wind = 8; s.gpsHold = false; s.homeX = 270; s.droneX = 270; s.drift = 0; },
+  onReset(s){ s.wind = 8; s.gpsHold = false; s.droneX = 270; s.drift = 0; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'sense') { ui.activeLine(1); ui.narrate(`🌬️ wind ${s.wind} m/s`); }
+    else if (phase === 'nohold') { ui.activeLine(2); if (!s.gpsHold) { s.droneX += s.wind * 0.8; s.droneX = Math.max(40, Math.min(500, s.droneX)); } }
+    else if (phase === 'hold') { ui.activeLine(3); if (s.gpsHold) { const err = s.droneX - s.homeX; s.droneX -= err * 0.15; } }
+    else if (phase === 'result') { ui.activeLine(4); s.drift = Math.round(Math.abs(s.droneX - s.homeX)); ui.setVar('drift', s.drift, { display: s.drift+'m', flash:true }); }
+  }
+});
+</script>
+</body></html>

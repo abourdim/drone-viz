@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Battery Sag</title>
+<link rel="stylesheet" href="maker-viz.css">
+</head><body>
+<a class="mv-nav" href="index.html">← Back</a>
+<div id="app"></div>
+<script src="maker-viz.js"></script>
+<script>
+function stage(s){
+  const W=500, H=140;
+  const vHist = s.vHist;
+  const tHist = s.tHist;
+  const n = vHist.length || 2;
+  const pV = vHist.map((v,i)=>`${(i/(n-1))*W},${H - ((v-10)/8)*H}`).join(' ');
+  const pT = tHist.map((t,i)=>`${(i/(n-1))*W},${H - (t/100)*H}`).join(' ');
+  return `<svg viewBox="0 0 540 240">
+    <rect x="10" y="10" width="${W+20}" height="${H+20}" fill="#0A0F1E" stroke="#FFD700" stroke-width="3" rx="8"/>
+    <polyline points="${pT}" fill="none" stroke="#FFD700" stroke-width="2" transform="translate(10,10)"/>
+    <polyline points="${pV}" fill="none" stroke="${s.voltage < 14.0 ? '#E63946' : '#40BF4A'}" stroke-width="3" transform="translate(10,10)"/>
+    <text x="20" y="28" font-size="11" fill="#FFD700" font-weight="bold">throttle %</text>
+    <text x="20" y="42" font-size="11" fill="#40BF4A" font-weight="bold">voltage V</text>
+    <g transform="translate(20,195)">
+      <text font-size="13" font-weight="bold" fill="#264653">V = V_open − I × R_int → ${s.voltage.toFixed(2)}V</text>
+      <text y="22" font-size="11" fill="${s.voltage<13?'#E63946':'#264653'}">${s.voltage < 13 ? '⚠️ voltage sag under load — punch failed!' : 'holding up'}</text>
+    </g>
+  </svg>`;
+}
+
+MakerViz.create({
+  mount: '#app',
+  title: '🔋 Battery Sag',
+  subtitle: 'Punch the throttle → voltage drops → thrust drops!',
+  vars: {
+    throttle: { label:'⚡ throttle', value: 30, color:'#FFD700', note:'%' },
+    voltage:  { label:'🔋 voltage',  value: 16.8, color:'#40BF4A', note:'V' },
+    thrust:   { label:'💪 thrust',   value: 0, color:'#FF6B35', note:'rel' }
+  },
+  extras: [
+    { kind:'slider', id:'thS', label:'Throttle cmd %', min:0, max:100, value:30, step:5, onInput(v,s){ s.throttleCmd = v; }},
+    { kind:'slider', id:'rS',  label:'Internal R (mΩ)', min:5, max:80, value:30, step:1, onInput(v,s){ s.rInt = v/1000; }}
+  ],
+  lines: [
+    'READ throttle command',
+    'I = throttle × 80A (4-motor burst)',
+    'V = V_open − I × R_internal',
+    'thrust ∝ V² → sags when you punch'
+  ],
+  phases: ['read','current','voltage','thrust'],
+  onInit(s){ s.throttleCmd = 30; s.rInt = 0.03; s.vOpen = 16.8; s.throttle = 30; s.voltage = 16.8; s.thrust = 0; s.vHist = []; s.tHist = []; },
+  onReset(s){ s.throttleCmd = 30; s.vOpen = 16.8; s.throttle = 30; s.voltage = 16.8; s.thrust = 0; s.vHist = []; s.tHist = []; },
+  stage,
+  run(phase, s, ui){
+    if (phase === 'read') { ui.activeLine(1); s.throttle = s.throttleCmd; ui.setVar('throttle', s.throttle, { display: s.throttle+'%' }); s.tHist.push(s.throttle); if (s.tHist.length>80) s.tHist.shift(); }
+    else if (phase === 'current') { ui.activeLine(2); s.i = (s.throttle/100) * 80; ui.narrate(`I ≈ ${s.i.toFixed(0)} A`); }
+    else if (phase === 'voltage') {
+      ui.activeLine(3);
+      s.voltage = s.vOpen - s.i * s.rInt;
+      ui.setVar('voltage', s.voltage, { display: s.voltage.toFixed(2)+'V', flash:true });
+      s.vHist.push(s.voltage); if (s.vHist.length > 80) s.vHist.shift();
+    }
+    else if (phase === 'thrust') {
+      ui.activeLine(4);
+      s.thrust = Math.pow(s.voltage/16.8, 2) * s.throttle;
+      ui.setVar('thrust', s.thrust, { display: s.thrust.toFixed(0) });
+    }
+  }
+});
+</script>
+</body></html>
